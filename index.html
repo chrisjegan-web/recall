@@ -388,6 +388,9 @@ nav.tabbar button.on svg{stroke-width:2.3}
   background:var(--ink);color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:500;
   box-shadow:var(--shadow-lg);z-index:200;opacity:0;pointer-events:none;transition:all .3s;white-space:nowrap;max-width:90vw}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.celebrate{background:var(--chloro-d);font-weight:600;padding-left:16px}
+#toast.celebrate.show{animation:celebpop .42s ease}
+@keyframes celebpop{0%{transform:translateX(-50%) translateY(20px) scale(.92)}60%{transform:translateX(-50%) translateY(-2px) scale(1.02)}100%{transform:translateX(-50%) translateY(0) scale(1)}}
 
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (min-width:520px){.modegrid .modecard{min-height:140px}}
@@ -516,7 +519,9 @@ function canEdit(set){ return TEACHER || !isCurated(set); }    // students: own 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=> Math.floor(Date.now()/DAY);   // integer day index
-function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function toast(msg){ const t=$('#toast'); t.classList.remove('celebrate'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+/* a warmer, slightly longer toast for genuine milestones — calm, never naggy */
+function celebrate(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('celebrate'); t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.classList.remove('celebrate'),350); },2800); }
 
 /* image helpers: stored as Blob in IndexedDB, shown via object URL (cached) */
 const urlCache={};
@@ -537,6 +542,27 @@ function dueCards(set){ const t=today(); return set.cards.filter(c=>{ const st=c
 function boxCounts(set){ const c=[0,0,0,0,0]; set.cards.forEach(card=>{ c[cardState(set.id,card.id).box-1]++; }); return c; }
 /* mastery = average progress across the 5 stages (all New = 0%, all Mastered = 100%) */
 function masteryPct(set){ if(!set.cards.length) return 0; let s=0; set.cards.forEach(c=>{ s+=(cardState(set.id,c.id).box-1)/4; }); return Math.round(s/set.cards.length*100); }
+
+/* calm one-time milestones — each fires once, ever, and never nags */
+function setComplete(set){ return set.cards.length>=3 && set.cards.every(c=>cardState(set.id,c.id).box>=2); }
+function maybeCelebrateSets(scope){
+  const done=META.setsDone||(META.setsDone=[]);
+  for(const s of (scope&&scope.sets)||[]){
+    if(!done.includes(s.id) && setComplete(s)){
+      done.push(s.id); DB.put('meta',done,'setsDone');
+      celebrate(`Every card in “${s.name}” — nicely done 🌿`);
+      return;                           // at most one at a time, never a pile-up
+    }
+  }
+}
+function firstTimeMode(m){
+  if(m==='edit') return;
+  const seen=META.modesSeen||(META.modesSeen=[]);
+  if(seen.includes(m)) return;
+  seen.push(m); DB.put('meta',seen,'modesSeen');
+  const names={learn:'Learn',flip:'Flip cards',match:'Match',test:'Test',listen:'Listen'};
+  setTimeout(()=>celebrate(`First time trying ${names[m]||'this'} — have a go 🌿`),450);
+}
 function scopeBoxCounts(scope){ const c=[0,0,0,0,0]; scope.sets.forEach(s=>s.cards.forEach(card=>{ c[cardState(s.id,card.id).box-1]++; })); return c; }
 function scopeTotal(scope){ return scope.sets.reduce((n,s)=>n+s.cards.length,0); }
 function scopeMastery(scope){ const t=scopeTotal(scope); if(!t) return 0; let s=0; scope.sets.forEach(set=>set.cards.forEach(c=>{ s+=(cardState(set.id,c.id).box-1)/4; })); return Math.round(s/t*100); }
@@ -602,8 +628,8 @@ async function markDayActive(t){
   const run=computeStreak(), seen=META.streakSeen||(META.streakSeen=[]);
   if(MILESTONES.includes(run) && !seen.includes(run)){
     seen.push(run); await DB.put('meta',META.streakSeen,'streakSeen');
-    toast(`${run}-day run — lovely consistency 🌿`);
-  } else toast('Goal reached for today — nice work');
+    celebrate(`${run}-day run — lovely consistency 🌿`);
+  } else celebrate('Goal reached for today — nice work 🌿');
   renderStreak();
 }
 function leafSvg(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 21c0-7 5-13 14-14 0 9-5 14-14 14zm0 0c2-4 5-6 9-7" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>'; }
@@ -849,6 +875,7 @@ async function renderStudy(){
     </div>`;
   body.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
     const m=b.dataset.mode;
+    firstTimeMode(m);
     if(m==='edit') openEditor(scope.sets[0]);
     else if(m==='learn') startLearn(scope);
     else if(m==='flip') startFlip(scope);
@@ -1132,6 +1159,7 @@ function learnDone(){
     </div>`;
   $('#x').onclick=$('#done').onclick=closeSession;
   if(stillDue) $('#again').onclick=()=>startLearn(scope);
+  maybeCelebrateSets(scope);
 }
 
 /* =========================================================================
@@ -1664,6 +1692,8 @@ async function loadAll(){
   if(!META.goal){ const old=await DB.get('meta','goalPerDay');   // migrate the old fixed goal
     META.goal={type:'count',n:old||DEFAULT_GOAL}; }
   TEACHER = !!(await DB.get('meta','teacher'));
+  META.setsDone=(await DB.get('meta','setsDone'))||[];
+  META.modesSeen=(await DB.get('meta','modesSeen'))||[];
 }
 
 /* ---- content that ships baked into the app (filled by the build step) ---- */
