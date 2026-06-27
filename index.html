@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1b2a27">
+<title>Recall — study cards</title>
+<!-- PWA: installable + offline. Relative paths so it works under a GitHub Pages /repo/ subpath. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Recall">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --paper:#f1f4f1;        /* cool specimen paper */
+  --surface:#ffffff;
+  --surface-2:#f8faf8;
+  --ink:#19251f;          /* deep blackish-green */
+  --ink-2:#3c4b44;
+  --muted:#6c7d74;        /* slate-green grey */
+  --line:#dfe6e0;
+  --line-2:#e9efe9;
+  --chloro:#1f6f54;       /* considered green: primary */
+  --chloro-d:#155a43;
+  --chloro-soft:#e4f0ea;
+  --amber:#cf8233;        /* needs-work / learning */
+  --amber-soft:#f6ead9;
+  --rose:#b5524b;         /* missed / error */
+  --rose-soft:#f6e1df;
+  /* leitner progression: warm(new)->green(mastered) */
+  --b1:#cf8233; --b2:#bb9740; --b3:#8a9e50; --b4:#4f8a59; --b5:#1f6f54;
+  --shadow:0 1px 2px rgba(25,37,31,.06), 0 8px 24px rgba(25,37,31,.07);
+  --shadow-lg:0 4px 12px rgba(25,37,31,.10), 0 24px 60px rgba(25,37,31,.14);
+  --r:14px; --r-lg:22px;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --serif:'Fraunces',Georgia,'Times New Roman',serif;
+  --nav-h:64px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--sans);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit;font-size:16px}
+:focus-visible{outline:2.5px solid var(--chloro);outline-offset:2px;border-radius:6px}
+img{max-width:100%;display:block}
+
+/* ---------- app frame ---------- */
+#app{height:100%;display:flex;flex-direction:column;max-width:680px;margin:0 auto;position:relative;background:var(--paper)}
+.screen{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 18px calc(var(--nav-h) + 28px);display:none}
+.screen.active{display:block}
+.screen.full{padding-bottom:0}
+
+/* ---------- top bar ---------- */
+.topbar{
+  position:sticky;top:0;z-index:20;background:linear-gradient(var(--paper) 70%, transparent);
+  padding:max(14px,env(safe-area-inset-top)) 0 10px;display:flex;align-items:flex-end;gap:10px;
+}
+.wordmark{font-family:var(--serif);font-weight:600;font-size:25px;letter-spacing:-.01em;color:var(--ink);line-height:1}
+.wordmark .dot{color:var(--chloro)}
+.tag{font-size:11px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;font-weight:600;padding-bottom:3px}
+.topbar .spacer{flex:1}
+.ico-btn{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--surface);box-shadow:var(--shadow);color:var(--ink-2)}
+.ico-btn:active{transform:scale(.94)}
+.ico-btn.on{background:var(--ink);color:#fff}
+/* manage mode */
+.manage-note{background:var(--amber-soft);color:#8a5320;border-radius:14px;padding:11px 15px;font-size:13px;line-height:1.4;margin-bottom:14px}
+.manage-note b{font-weight:700}
+.ch-del,.set-del{flex-shrink:0;display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:var(--rose-soft);color:var(--rose);transition:transform .1s}
+.ch-del:active,.set-del:active{transform:scale(.88)}
+.setcard.managing{position:relative;padding-right:54px}
+.set-del{position:absolute;top:14px;right:14px;width:36px;height:36px}
+.chapter-head.managing{cursor:default}
+
+/* ---------- bottom nav ---------- */
+nav.tabbar{
+  position:absolute;bottom:0;left:0;right:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:rgba(255,255,255,.86);backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);display:flex;z-index:30;
+}
+nav.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.01em}
+nav.tabbar button svg{width:23px;height:23px;stroke-width:1.9}
+nav.tabbar button.on{color:var(--chloro)}
+nav.tabbar button.on svg{stroke-width:2.3}
+
+/* ---------- cards / lists ---------- */
+.section-label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:22px 2px 11px}
+.setcard{
+  background:var(--surface);border-radius:var(--r-lg);padding:17px 18px;box-shadow:var(--shadow);
+  margin-bottom:13px;display:block;width:100%;text-align:left;position:relative;overflow:hidden;
+  transition:transform .15s ease;
+}
+.setcard:active{transform:scale(.985)}
+.setcard h3{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:-.01em;margin-bottom:3px}
+.setcard .meta{font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center}
+.setcard .meta b{color:var(--chloro);font-weight:600}
+.due-pill{display:inline-flex;align-items:center;gap:5px;background:var(--chloro-soft);color:var(--chloro-d);font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;margin-top:9px}
+.due-pill.clear{background:var(--surface-2);color:var(--muted)}
+
+/* set-card progress bar (clear: how learned the set is) */
+.setcard .meta .pct{margin-left:auto;color:var(--chloro);font-weight:600}
+.prog{height:7px;background:var(--line-2);border-radius:5px;overflow:hidden;margin-top:11px}
+.prog>i{display:block;height:100%;background:linear-gradient(90deg,var(--b3),var(--chloro));border-radius:5px;transition:width .5s cubic-bezier(.2,.8,.2,1)}
+
+/* chapter dropdowns */
+.chapter{margin-bottom:12px}
+.chapter-head{width:100%;display:flex;align-items:center;gap:13px;background:var(--surface);border-radius:var(--r-lg);padding:14px 16px;box-shadow:var(--shadow);text-align:left;transition:transform .12s}
+.chapter-head:active{transform:scale(.99)}
+.ch-badge{flex-shrink:0;min-width:42px;height:42px;padding:0 8px;border-radius:12px;background:var(--ink);color:#fff;font-weight:700;font-size:14px;display:grid;place-items:center;letter-spacing:.02em}
+.ch-badge.alt{background:var(--amber)}
+.ch-meta{flex:1;min-width:0}
+.ch-title{font-family:var(--serif);font-weight:600;font-size:17px;letter-spacing:-.01em;line-height:1.15}
+.ch-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.ch-sub b{color:var(--chloro-d);font-weight:600}
+.ch-sub .ch-pct{color:var(--chloro);font-weight:600}
+.chev{flex-shrink:0;color:var(--muted);transition:transform .25s}
+.chapter-head.open .chev{transform:rotate(180deg)}
+.chapter-body{padding:11px 2px 2px}
+.ch-studyall{width:100%;display:flex;align-items:center;gap:10px;background:var(--chloro-soft);color:var(--chloro-d);border-radius:14px;padding:13px 15px;font-weight:600;font-size:14px;margin-bottom:11px;box-shadow:var(--shadow);transition:transform .12s}
+.ch-studyall:active{transform:scale(.98)}
+.ch-studyall span{flex:1;text-align:left}
+.ch-studyall em{font-style:normal;font-size:12px;font-weight:600;opacity:.7}
+.ch-sets .setcard{margin-bottom:10px}
+.scope-flag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--chloro-d);background:var(--chloro-soft);padding:4px 10px;border-radius:20px;margin-bottom:8px}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:15px;
+  padding:13px 20px;border-radius:13px;transition:transform .12s ease,background .15s}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--chloro);color:#fff;box-shadow:0 4px 14px rgba(31,111,84,.28)}
+.btn-primary:active{background:var(--chloro-d)}
+.btn-ghost{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.btn-soft{background:var(--chloro-soft);color:var(--chloro-d)}
+.btn-block{width:100%}
+.btn-row{display:flex;gap:10px}
+.fab{position:absolute;right:18px;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px);
+  width:56px;height:56px;border-radius:18px;background:var(--chloro);color:#fff;display:grid;place-items:center;
+  box-shadow:0 6px 20px rgba(31,111,84,.4);z-index:25}
+.fab:active{transform:scale(.92)}
+.fab svg{width:26px;height:26px;stroke-width:2.4}
+
+/* ---------- empty states ---------- */
+.empty{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty .glyph{width:64px;height:64px;margin:0 auto 16px;color:var(--line);}
+.empty h3{font-family:var(--serif);font-weight:600;font-size:20px;color:var(--ink-2);margin-bottom:7px}
+.empty p{font-size:14px;line-height:1.5;max-width:280px;margin:0 auto 18px}
+
+/* ---------- study: mode picker ---------- */
+.study-head{padding-top:6px}
+.study-head h2{font-family:var(--serif);font-size:26px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
+.study-head .sub{color:var(--muted);font-size:14px;margin-bottom:6px}
+.head-controls{display:flex;gap:9px;flex-wrap:wrap;margin-top:10px}
+.head-controls .btn{font-size:13px;padding:8px 13px}
+.head-controls .flagged-btn{display:inline-flex;align-items:center;gap:6px;background:var(--amber-soft);color:#9a5d1d}
+.dir-row{display:flex;align-items:center;gap:11px;margin-top:14px}
+.dir-label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em;flex-shrink:0}
+.sess-dir{display:flex;justify-content:center;padding:6px 18px 0}
+.sess-dir .seg.dir-seg{margin-bottom:0;max-width:340px;width:100%}
+.seg.dir-seg{flex:1;margin-bottom:0}
+.seg.dir-seg button{padding:8px 4px;font-size:12.5px}
+.split{width:100%;max-width:320px;margin:2px 0 22px}
+.split-bar{display:flex;height:14px;border-radius:8px;overflow:hidden;background:var(--line-2)}
+.split-bar .g{background:var(--chloro);transition:width .5s ease}
+.split-bar .m{background:var(--rose);transition:width .5s ease}
+.split-legend{display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;margin-top:9px}
+.split-legend .g{color:var(--chloro-d)}
+.split-legend .m{color:var(--rose)}
+.modegrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+.modecard{background:var(--surface);border-radius:var(--r);padding:18px 16px;box-shadow:var(--shadow);text-align:left;display:flex;flex-direction:column;gap:10px;min-height:120px;transition:transform .14s}
+.modecard:active{transform:scale(.97)}
+.modecard .ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;background:var(--chloro-soft);color:var(--chloro-d)}
+.modecard.amber .ic{background:var(--amber-soft);color:#9a5d1d}
+.modecard h4{font-size:16px;font-weight:600}
+.modecard p{font-size:12.5px;color:var(--muted);line-height:1.4}
+.modecard.wide{grid-column:1/-1;flex-direction:row;align-items:center;min-height:0}
+.modecard.wide .txt{flex:1}
+
+/* full leitner board */
+.board{background:var(--surface);border-radius:var(--r-lg);padding:18px;box-shadow:var(--shadow);margin-top:20px}
+.board h4{font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:2px}
+.board .hint{font-size:12px;color:var(--muted);margin-bottom:16px}
+.boxes{display:flex;align-items:flex-end;gap:8px;height:108px}
+.box{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.box .bar{width:100%;border-radius:8px 8px 4px 4px;min-height:5px;transition:height .5s cubic-bezier(.2,.8,.2,1);position:relative}
+.box .cnt{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.box .lbl{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.02em;text-align:center}
+.box:nth-child(1) .bar{background:var(--b1)}.box:nth-child(2) .bar{background:var(--b2)}
+.box:nth-child(3) .bar{background:var(--b3)}.box:nth-child(4) .bar{background:var(--b4)}.box:nth-child(5) .bar{background:var(--b5)}
+
+/* ---------- daily rhythm: gentle streak + weekly strip ---------- */
+.streak{background:var(--surface);border-radius:var(--r-lg);padding:15px 16px 14px;box-shadow:var(--shadow);margin-bottom:18px}
+.streak-top{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+.streak-flame{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex-shrink:0;background:var(--chloro-soft);color:var(--chloro-d)}
+.streak-flame.rest{background:var(--surface-2);color:var(--muted)}
+.streak-main{flex:1;min-width:0}
+.streak-head{font-size:15px;font-weight:700;color:var(--ink);font-family:var(--serif);line-height:1.15}
+.streak-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.streak-goal{font-size:11.5px;font-weight:600;color:var(--chloro-d);background:var(--chloro-soft);padding:7px 10px;border-radius:10px;flex-shrink:0;white-space:nowrap}
+.streak-goal.done{background:var(--surface-2);color:var(--muted)}
+.week{display:flex;gap:6px}
+.wd{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px}
+.wd .dl{font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.03em;text-transform:uppercase}
+.wd .dot{width:100%;max-width:34px;aspect-ratio:1;border-radius:10px;background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line-2);display:grid;place-items:center;color:transparent}
+.wd.studied .dot{background:var(--chloro);box-shadow:none;color:#fff}
+.wd.rest .dot{background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--line);color:var(--muted)}
+.wd.today .dl{color:var(--chloro-d)}
+.wd.today .dot{box-shadow:inset 0 0 0 2px var(--chloro)}
+.wd.today.studied .dot{box-shadow:inset 0 0 0 2px var(--chloro-d)}
+.wd.future .dl{opacity:.45}
+.wd.future .dot{opacity:.4}
+.wd .dot svg{width:16px;height:16px}
+
+/* ---------- study session: flashcard ---------- */
+.session{position:fixed;inset:0;background:var(--paper);z-index:60;display:none;flex-direction:column;max-width:680px;margin:0 auto}
+.session.active{display:flex}
+.sess-top{display:flex;align-items:center;gap:14px;padding:max(14px,env(safe-area-inset-top)) 18px 8px}
+.sess-top .close{width:38px;height:38px;border-radius:11px;background:var(--surface);box-shadow:var(--shadow);display:grid;place-items:center;color:var(--ink-2);flex-shrink:0}
+.progbar{flex:1;height:7px;background:var(--line-2);border-radius:5px;overflow:hidden}
+.progbar>i{display:block;height:100%;background:var(--chloro);border-radius:5px;transition:width .35s ease;width:0}
+.sess-count{font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;flex-shrink:0}
+
+.cardstage{flex:1;display:flex;flex-direction:column;justify-content:center;padding:8px 18px 18px;min-height:0}
+.flip{perspective:1600px;flex:1;max-height:480px;min-height:280px;margin-bottom:16px}
+.flip-inner{position:relative;width:100%;height:100%;transition:transform .5s cubic-bezier(.4,.0,.2,1);transform-style:preserve-3d;cursor:pointer}
+.flip.flipped .flip-inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px;overflow:hidden;text-align:center}
+.face.back{transform:rotateY(180deg)}
+.face .side-tag{position:absolute;top:16px;left:20px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.face .star{position:absolute;top:13px;right:16px;width:34px;height:34px;display:grid;place-items:center;color:var(--line);border-radius:9px}
+.face .star.on{color:var(--amber)}
+.face .flag{position:absolute;top:13px;right:14px;width:36px;height:36px;display:grid;place-items:center;color:var(--line);border-radius:10px;transition:color .15s,transform .1s}
+.face .flag:active{transform:scale(.88)}
+.face .flag.on{color:var(--amber)}
+.face .term{font-family:var(--serif);font-weight:600;font-size:clamp(22px,6vw,34px);line-height:1.15;letter-spacing:-.01em}
+.face .def{font-size:clamp(16px,4.4vw,20px);line-height:1.45;color:var(--ink-2);font-weight:400}
+.face img.cardimg{max-height:48%;width:auto;border-radius:12px;margin-bottom:18px;object-fit:contain;box-shadow:0 2px 10px rgba(25,37,31,.12)}
+.face .tap-hint{position:absolute;bottom:16px;font-size:12px;color:var(--muted)}
+/* per-card audio + simpler + translate */
+.def-tr{font-size:clamp(15px,4vw,19px);line-height:1.5;color:var(--chloro-d);margin-top:12px;font-weight:500}
+.parts-panel{margin-top:14px;width:100%}
+.syll{font-size:clamp(18px,5.5vw,26px);font-weight:600;letter-spacing:.05em;color:var(--chloro-d);margin-bottom:11px}
+.morphs{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+.morph{background:var(--chloro-soft);color:var(--chloro-d);border-radius:11px;padding:6px 12px;font-size:13.5px;line-height:1.3}
+.morph b{font-weight:700}
+.card-audio{display:flex;gap:9px;margin-top:16px}
+.cbtn{display:grid;place-items:center;min-width:42px;height:42px;padding:0 12px;border-radius:12px;background:var(--surface-2);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2);font-weight:700;font-size:15px;transition:transform .1s}
+.cbtn:active{transform:scale(.9)}
+.cbtn.on{background:var(--chloro-soft);color:var(--chloro-d);box-shadow:inset 0 0 0 1.5px var(--chloro)}
+/* language bottom sheet */
+.sheet{position:fixed;inset:0;z-index:90;background:rgba(25,37,31,.4);display:flex;align-items:flex-end;justify-content:center;animation:fade .2s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet-card{background:var(--surface);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:20px 18px calc(env(safe-area-inset-bottom) + 20px);box-shadow:var(--shadow-lg)}
+.sheet-h{font-family:var(--serif);font-weight:600;font-size:18px;margin-bottom:14px}
+.sheet-opt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:14px 15px;border-radius:13px;background:var(--surface-2);margin-bottom:9px;font-size:17px;font-weight:600}
+.sheet-opt em{font-style:normal;font-size:13px;color:var(--muted);font-weight:500;margin-left:auto}
+.sheet-opt.on{background:var(--chloro-soft);color:var(--chloro-d);box-shadow:inset 0 0 0 1.5px var(--chloro)}
+/* Listen player */
+.listen-stage{flex:1;display:flex;align-items:center;justify-content:center;padding:18px;min-height:0}
+.listen-card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:30px 26px;width:100%;max-width:460px;text-align:center;position:relative}
+.listen-card .term{font-family:var(--serif);font-weight:600;font-size:clamp(24px,6vw,34px);line-height:1.15;margin-bottom:14px}
+.listen-card .ldef{font-size:clamp(16px,4.4vw,20px);line-height:1.45;color:var(--ink-2)}
+.listen-controls{display:flex;align-items:center;justify-content:space-between;padding:0 18px calc(env(safe-area-inset-bottom) + 20px);gap:10px}
+.lc-main{display:flex;align-items:center;gap:14px}
+.lplay{width:68px;height:68px;border-radius:50%;background:var(--chloro);color:#fff;display:grid;place-items:center;box-shadow:0 6px 18px rgba(31,111,84,.35)}
+.lplay:active{transform:scale(.94)}
+.lc-speed{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--surface);box-shadow:var(--shadow);padding:9px 12px;border-radius:11px;min-width:96px}
+.lc-speed.on{background:var(--amber-soft);color:#9a5d1d}
+.lc-lang{width:42px;height:42px;border-radius:12px;background:var(--surface);box-shadow:var(--shadow);color:var(--ink-2);display:grid;place-items:center}
+
+.sess-actions{padding:0 18px calc(env(safe-area-inset-bottom) + 18px)}
+.grade{display:flex;gap:12px}
+.grade-q{text-align:center;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;letter-spacing:.01em}
+.grade button{flex:1;padding:16px;border-radius:15px;font-weight:600;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:3px;box-shadow:var(--shadow)}
+.grade .miss{background:var(--rose-soft);color:#8f3a35}
+.grade .got{background:var(--chloro-soft);color:var(--chloro-d)}
+.grade button small{font-weight:500;font-size:11px;opacity:.75}
+.grade button:active{transform:scale(.96)}
+.nav-flip{display:flex;gap:12px;align-items:center}
+.nav-flip .arrow{width:54px;height:54px;border-radius:15px;background:var(--surface);box-shadow:var(--shadow);display:grid;place-items:center;color:var(--ink-2)}
+.nav-flip .arrow:disabled{opacity:.4}
+.nav-flip .flipbtn{flex:1;padding:16px;border-radius:15px;background:var(--chloro);color:#fff;font-weight:600;box-shadow:0 4px 14px rgba(31,111,84,.28)}
+
+/* ---------- match game ---------- */
+.matchwrap{flex:1;display:flex;flex-direction:column;padding:6px 14px 16px;min-height:0}
+.matchgrid{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:9px;align-content:start;overflow-y:auto;padding:4px 0}
+.tile{background:var(--surface);border-radius:13px;box-shadow:var(--shadow);padding:13px 11px;font-size:13.5px;line-height:1.3;
+  display:flex;align-items:center;justify-content:center;text-align:center;min-height:74px;transition:all .18s;position:relative;font-weight:500}
+.tile img{max-height:54px;width:auto;border-radius:6px}
+.tile.sel{box-shadow:0 0 0 2.5px var(--chloro),var(--shadow);background:var(--chloro-soft)}
+.tile.gone{opacity:0;pointer-events:none;transform:scale(.8)}
+.tile.bad{box-shadow:0 0 0 2.5px var(--rose);animation:shake .35s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.match-timer{text-align:center;font-variant-numeric:tabular-nums;font-weight:700;font-size:18px;color:var(--ink-2);padding:4px 0 8px}
+
+/* ---------- test ---------- */
+.testwrap{flex:1;display:flex;flex-direction:column;padding:8px 18px 18px;overflow-y:auto;min-height:0}
+.q-prompt{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:22px;margin-bottom:18px;text-align:center}
+.q-prompt .qlabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:10px}
+.q-prompt .qterm{font-family:var(--serif);font-size:24px;font-weight:600;line-height:1.2}
+.q-prompt img{max-height:160px;width:auto;margin:0 auto 8px;border-radius:10px}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{background:var(--surface);border-radius:13px;box-shadow:var(--shadow);padding:15px 16px;text-align:left;font-size:15px;font-weight:500;line-height:1.35;transition:all .15s}
+.opt:active{transform:scale(.99)}
+.opt.correct{background:var(--chloro-soft);box-shadow:0 0 0 2px var(--chloro)}
+.opt.wrong{background:var(--rose-soft);box-shadow:0 0 0 2px var(--rose)}
+.opt.dim{opacity:.5}
+.written input{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:13px;padding:15px;box-shadow:var(--shadow)}
+.written .feedback{margin-top:14px;padding:15px;border-radius:13px;font-size:14px;line-height:1.5}
+.written .feedback.ok{background:var(--chloro-soft);color:var(--chloro-d)}
+.written .feedback.no{background:var(--rose-soft);color:#8f3a35}
+.written .feedback b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;opacity:.8}
+
+/* results */
+.results{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;text-align:center}
+.results .ring{width:150px;height:150px;margin-bottom:24px}
+.results h2{font-family:var(--serif);font-size:30px;font-weight:600;margin-bottom:6px}
+.results p{color:var(--muted);font-size:15px;margin-bottom:28px;max-width:300px;line-height:1.5}
+
+/* ---------- editor / modal ---------- */
+.modal{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;background:var(--paper);max-width:680px;margin:0 auto}
+.modal.active{display:flex}
+.modal-top{display:flex;align-items:center;justify-content:space-between;padding:max(14px,env(safe-area-inset-top)) 18px 12px;border-bottom:1px solid var(--line)}
+.modal-top h2{font-family:var(--serif);font-size:20px;font-weight:600}
+.modal-top button{font-weight:600;font-size:15px;color:var(--chloro);padding:6px 4px}
+.modal-top button.cancel{color:var(--muted)}
+.modal-body{flex:1;overflow-y:auto;padding:18px 18px calc(env(safe-area-inset-bottom) + 24px)}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:7px;letter-spacing:.01em}
+.field input[type=text],.field textarea{width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:13px 14px;line-height:1.4}
+.field textarea{resize:vertical;min-height:74px}
+.field input:focus,.field textarea:focus{border-color:var(--chloro);outline:none}
+.help{font-size:12px;color:var(--muted);line-height:1.45;margin-top:6px}
+
+/* card editor rows */
+.cardrow{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:14px;margin-bottom:11px}
+.cardrow .rowhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.cardrow .rowhead span{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.08em}
+.cardrow .del{color:var(--rose);font-size:13px;font-weight:600}
+.cardrow textarea{width:100%;background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;padding:10px;min-height:46px;resize:vertical;margin-bottom:8px;font-size:14px;line-height:1.35}
+.imgrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.imgrow .thumb{width:50px;height:50px;border-radius:8px;object-fit:cover;box-shadow:var(--shadow)}
+.imgbtn{font-size:12px;font-weight:600;color:var(--chloro-d);background:var(--chloro-soft);padding:8px 12px;border-radius:9px;display:inline-flex;gap:5px;align-items:center}
+.imgbtn.has{background:var(--amber-soft);color:#9a5d1d}
+.imgclear{font-size:12px;color:var(--muted);font-weight:600;padding:6px}
+
+/* segmented */
+.seg{display:flex;background:var(--surface-2);border-radius:12px;padding:4px;margin-bottom:18px;box-shadow:inset 0 0 0 1px var(--line-2)}
+.seg button{flex:1;padding:9px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+
+/* ---------- sync ---------- */
+.sync-card{background:var(--surface);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow);margin-bottom:14px}
+.sync-card h3{font-family:var(--serif);font-size:18px;font-weight:600;margin-bottom:5px}
+.sync-card p{font-size:13.5px;color:var(--muted);line-height:1.5;margin-bottom:14px}
+.codebox{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1.5px dashed var(--line);border-radius:13px;padding:14px 16px;margin-bottom:14px}
+.codebox .code{font-family:'Inter',monospace;font-size:21px;font-weight:700;letter-spacing:.08em;color:var(--chloro-d);flex:1}
+.codebox .copy{font-size:12px;font-weight:600;color:var(--chloro);padding:8px 10px;background:var(--chloro-soft);border-radius:9px}
+.sync-status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:5px 11px;border-radius:20px;margin-bottom:14px}
+.sync-status.live{background:var(--chloro-soft);color:var(--chloro-d)}
+.sync-status.local{background:var(--amber-soft);color:#9a5d1d}
+.sync-status .pip{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+/* toast */
+#toast{position:fixed;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 22px);left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;font-weight:500;
+  box-shadow:var(--shadow-lg);z-index:200;opacity:0;pointer-events:none;transition:all .3s;white-space:nowrap;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@media (min-width:520px){.modegrid .modecard{min-height:140px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ===== SETS SCREEN ===== -->
+  <section class="screen active" id="screen-sets">
+    <div class="topbar">
+      <div class="wordmark">Recall<span class="dot">.</span></div>
+      <div class="tag">biology</div>
+      <div class="spacer"></div>
+      <button class="ico-btn" id="manage-toggle" aria-label="Manage sets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="9" cy="18" r="2" fill="currentColor"/></svg>
+      </button>
+      <button class="ico-btn" id="open-import" aria-label="Import sets file">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="20" height="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+      </button>
+    </div>
+    <div id="streak"></div>
+    <div class="section-label">Your sets</div>
+    <div id="set-list"></div>
+    <button class="fab" id="new-set" aria-label="New set">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- ===== STUDY SCREEN ===== -->
+  <section class="screen" id="screen-study">
+    <div class="topbar"><div class="wordmark">Study</div><div class="spacer"></div></div>
+    <div id="study-body"></div>
+  </section>
+
+  <!-- ===== SYNC SCREEN ===== -->
+  <section class="screen" id="screen-sync">
+    <div class="topbar"><div class="wordmark">Sync</div><div class="spacer"></div></div>
+    <div id="sync-body"></div>
+  </section>
+
+  <!-- ===== BOTTOM NAV ===== -->
+  <nav class="tabbar">
+    <button data-tab="sets" class="on">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 20h10M3 9h18"/></svg>
+      Sets
+    </button>
+    <button data-tab="study">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4M4 16l8 4 8-4"/></svg>
+      Study
+    </button>
+    <button data-tab="sync">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0114-5l2 2M20 12a8 8 0 01-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg>
+      Sync
+    </button>
+  </nav>
+</div>
+
+<!-- ===== STUDY SESSION OVERLAY ===== -->
+<div class="session" id="session"></div>
+
+<!-- ===== EDITOR MODAL ===== -->
+<div class="modal" id="editor"></div>
+
+<div id="toast"></div>
+
+<!-- bundled content is injected here by the build step (null = none baked in) -->
+<script id="seed-data" type="application/json">{"version": 6, "title": "VCE Biology Unit 2 — AoS1: How is inheritance explained?", "sets": [{"name": "DNA Structure & Organisation", "cards": [{"term": "Nucleotide", "def": "The monomer (building block) of DNA, made of a phosphate group, a deoxyribose sugar, and a nitrogenous base.", "cid": "dna-structure-organisation-01", "simple": "One building block of DNA. It has three parts: a phosphate, a sugar, and a base.", "parts": [{"p": "nucleo", "m": "centre / nucleus"}, {"p": "tide", "m": "unit"}], "syll": "Nu·cle·o·tide", "tr": {"ar": "وحدة بناء الحمض النووي (DNA). تتكوّن من ثلاثة أجزاء: فوسفات وسكر وقاعدة نيتروجينية.", "tr": "DNA'nın yapı taşı. Üç parçadan oluşur: bir fosfat, bir şeker ve bir baz.", "vi": "Đơn vị cấu tạo của DNA. Gồm ba phần: một nhóm phosphate, một đường và một base.", "prs": "واحد سازندهٔ DNA. از سه بخش ساخته شده: فسفات، قند و یک باز."}}, {"term": "Nitrogenous bases in DNA", "def": "Adenine (A), thymine (T), guanine (G) and cytosine (C).", "cid": "dna-structure-organisation-02", "simple": "The four 'letters' of DNA: A, T, G and C.", "tr": {"ar": "حروف الحمض النووي الأربعة: A وT وG وC.", "tr": "DNA'nın dört 'harfi': A, T, G ve C.", "vi": "Bốn 'chữ cái' của DNA: A, T, G và C.", "prs": "چهار «حرف» DNA: A، T، G و C."}}, {"term": "Identify the base-pairing rule shown", "def": "A pairs with T (2 hydrogen bonds); G pairs with C (3 hydrogen bonds). This is complementary base pairing.", "timg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 220 150\">\n<rect x=\"20\" y=\"20\" width=\"26\" height=\"22\" rx=\"4\" fill=\"#1f6f54\"/><text x=\"33\" y=\"35\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"13\" fill=\"#fff\">A<\/text>\n<rect x=\"20\" y=\"60\" width=\"26\" height=\"22\" rx=\"4\" fill=\"#4f8a59\"/><text x=\"33\" y=\"75\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"13\" fill=\"#fff\">G<\/text>\n<rect x=\"20\" y=\"100\" width=\"26\" height=\"22\" rx=\"4\" fill=\"#1f6f54\"/><text x=\"33\" y=\"115\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"13\" fill=\"#fff\">C<\/text>\n<rect x=\"150\" y=\"20\" width=\"26\" height=\"22\" rx=\"4\" fill=\"#cf8233\"/><text x=\"163\" y=\"35\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"13\" fill=\"#fff\">T<\/text>\n<rect x=\"150\" y=\"60\" width=\"26\" height=\"22\" rx=\"4\" fill=\"#bb9740\"/><text x=\"163\" y=\"75\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"13\" fill=\"#fff\">C<\/text>\n<rect x=\"150\" y=\"100\" width=\"26\" height=\"22\" rx=\"4\" fill=\"#cf8233\"/><text x=\"163\" y=\"115\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"13\" fill=\"#fff\">G<\/text>\n<g stroke=\"#6c7d74\" stroke-width=\"2\" stroke-dasharray=\"3 3\">\n<line x1=\"46\" y1=\"31\" x2=\"150\" y2=\"31\"/><line x1=\"46\" y1=\"71\" x2=\"150\" y2=\"71\"/><line x1=\"46\" y1=\"111\" x2=\"150\" y2=\"111\"/><\/g>\n<text x=\"98\" y=\"20\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"10\" fill=\"#6c7d74\">2 H-bonds<\/text>\n<text x=\"98\" y=\"60\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"10\" fill=\"#6c7d74\">3 H-bonds<\/text>\n<\/svg>", "cid": "dna-structure-organisation-03", "simple": "A always joins with T. G always joins with C. A–T use 2 bonds, G–C use 3.", "tr": {"ar": "A يرتبط دائمًا مع T، وG يرتبط دائمًا مع C. رابطتان بين A وT، وثلاث روابط بين G وC.", "tr": "A her zaman T ile, G her zaman C ile eşleşir. A–T arasında 2 bağ, G–C arasında 3 bağ vardır.", "vi": "A luôn kết hợp với T, G luôn kết hợp với C. A–T có 2 liên kết, G–C có 3 liên kết.", "prs": "A همیشه با T و G همیشه با C جفت می‌شود. بین A و T دو پیوند و بین G و C سه پیوند وجود دارد."}}, {"term": "Complementary base pairing", "def": "The rule that A always pairs with T, and G always pairs with C, between the two DNA strands.", "cid": "dna-structure-organisation-04", "simple": "The rule for how the bases pair up: A with T, and G with C.", "tr": {"ar": "قاعدة ازدواج القواعد: A مع T، وG مع C.", "tr": "Bazların eşleşme kuralı: A ile T, G ile C.", "vi": "Quy tắc bắt cặp của các base: A với T, G với C.", "prs": "قاعدهٔ جفت‌شدن بازها: A با T و G با C."}}, {"term": "Double helix", "def": "Two antiparallel polynucleotide strands twisted into a spiral, held together by hydrogen bonds between complementary bases.", "cid": "dna-structure-organisation-05", "simple": "DNA's shape: two strands twisted together, like a twisted ladder.", "tr": {"ar": "شكل الحمض النووي: شريطان ملتفّان معًا مثل سلّم ملتوٍ.", "tr": "DNA'nın şekli: birbirine dolanmış iki iplik, bükülmüş bir merdiven gibi.", "vi": "Hình dạng của DNA: hai mạch xoắn vào nhau như một chiếc thang xoắn.", "prs": "شکل DNA: دو رشته که مانند یک نردبان پیچ‌خورده به هم تابیده‌اند."}}, {"term": "Antiparallel strands", "def": "The two DNA strands run in opposite directions to one another (one 5' to 3', the other 3' to 5').", "cid": "dna-structure-organisation-06", "simple": "The two DNA strands run in opposite directions.", "tr": {"ar": "شريطا الحمض النووي يسيران في اتجاهين متعاكسين.", "tr": "İki DNA ipliği zıt yönlerde uzanır.", "vi": "Hai mạch DNA chạy ngược chiều nhau.", "prs": "دو رشتهٔ DNA در جهت‌های مخالف قرار دارند."}}, {"term": "Sugar-phosphate backbone", "def": "The alternating sugar and phosphate groups forming the two sides of the DNA molecule, joined by strong covalent bonds.", "cid": "dna-structure-organisation-07", "simple": "The two long sides of the DNA ladder, made of sugar and phosphate.", "tr": {"ar": "جانبا سلّم الحمض النووي الطويلان، المكوّنان من السكر والفوسفات.", "tr": "DNA merdiveninin şeker ve fosfattan oluşan iki uzun kenarı.", "vi": "Hai cạnh dài của thang DNA, được tạo từ đường và phosphate.", "prs": "دو کنارهٔ بلند نردبان DNA که از قند و فسفات ساخته شده‌اند."}}, {"term": "Hydrogen bonds (in DNA)", "def": "Weak bonds between complementary bases that hold the two strands together and can break so the strands separate.", "cid": "dna-structure-organisation-08", "simple": "Weak bonds that hold the two DNA strands together. They come apart easily.", "tr": {"ar": "روابط ضعيفة تربط شريطي الحمض النووي معًا، وتنفصل بسهولة.", "tr": "İki DNA ipliğini bir arada tutan zayıf bağlar. Kolayca ayrılırlar.", "vi": "Các liên kết yếu giữ hai mạch DNA với nhau. Chúng dễ tách ra.", "prs": "پیوندهای ضعیفی که دو رشتهٔ DNA را به هم نگه می‌دارند و به‌آسانی جدا می‌شوند."}}, {"term": "Transcription", "def": "The process of copying a gene's DNA sequence into a complementary mRNA molecule, occurring in the nucleus.", "cid": "dna-structure-organisation-09", "simple": "Copying a gene from DNA into mRNA. It happens in the nucleus.", "syll": "Tran·scrip·tion", "tr": {"ar": "نسخ الجين من الحمض النووي إلى mRNA. يحدث داخل النواة.", "tr": "Bir genin DNA'dan mRNA'ya kopyalanması. Çekirdekte gerçekleşir.", "vi": "Sao chép một gen từ DNA thành mRNA. Quá trình này xảy ra trong nhân.", "prs": "رونویسی یک ژن از DNA به mRNA. این کار در هستهٔ سلول انجام می‌شود."}}, {"term": "Translation", "def": "The process where the mRNA sequence is decoded by a ribosome to assemble a chain of amino acids (a polypeptide).", "cid": "dna-structure-organisation-10", "simple": "Reading the mRNA to build a protein. A ribosome does this.", "syll": "Trans·la·tion", "tr": {"ar": "قراءة mRNA لبناء بروتين. يقوم بذلك الرايبوسوم.", "tr": "Protein üretmek için mRNA'nın okunması. Bunu ribozom yapar.", "vi": "Đọc mRNA để tạo protein. Ribosome thực hiện việc này.", "prs": "خواندن mRNA برای ساختن پروتئین. این کار را ریبوزوم انجام می‌دهد."}}, {"term": "DNA in prokaryotic cells", "def": "A single circular chromosome free in the cytoplasm (no nucleus); small plasmids may also be present.", "cid": "dna-structure-organisation-11", "simple": "In simple cells like bacteria, DNA is one circle floating freely. No nucleus.", "tr": {"ar": "في الخلايا البسيطة مثل البكتيريا، يكون الحمض النووي حلقة واحدة تسبح بحرّية. لا توجد نواة.", "tr": "Bakteri gibi basit hücrelerde DNA, serbestçe yüzen tek bir halkadır. Çekirdek yoktur.", "vi": "Ở tế bào đơn giản như vi khuẩn, DNA là một vòng tròn trôi tự do. Không có nhân.", "prs": "در سلول‌های ساده مانند باکتری، DNA یک حلقهٔ آزاد است و هسته وجود ندارد."}}, {"term": "DNA in eukaryotic cells", "def": "Linear chromosomes enclosed within a membrane-bound nucleus.", "cid": "dna-structure-organisation-12", "simple": "In complex cells, DNA is in straight pieces kept inside a nucleus.", "tr": {"ar": "في الخلايا المعقّدة، يكون الحمض النووي في قطع مستقيمة محفوظة داخل النواة.", "tr": "Karmaşık hücrelerde DNA, çekirdek içinde tutulan düz parçalar hâlindedir.", "vi": "Ở tế bào phức tạp, DNA ở dạng các đoạn thẳng nằm trong nhân.", "prs": "در سلول‌های پیچیده، DNA به‌صورت قطعه‌های مستقیم درون هسته نگه‌داری می‌شود."}}, {"term": "Gene", "def": "A segment of DNA that codes for a functional product, usually a polypeptide (protein).", "cid": "dna-structure-organisation-13", "simple": "A piece of DNA with the instructions to make one product, usually a protein.", "tr": {"ar": "قطعة من الحمض النووي تحمل تعليمات صنع منتج واحد، غالبًا بروتين.", "tr": "Genellikle bir protein olan tek bir ürünü yapma talimatlarını taşıyan bir DNA parçası.", "vi": "Một đoạn DNA chứa chỉ dẫn để tạo ra một sản phẩm, thường là protein.", "prs": "قطعه‌ای از DNA که دستورالعمل ساخت یک محصول، معمولاً یک پروتئین، را دارد."}}], "chapter": "DNA", "order": 1, "sid": "dna-structure-organisation"}, {"name": "Chromosomes, Genes & Alleles (7A)", "cards": [{"term": "Chromosome", "def": "A structure made of DNA tightly coiled around histone proteins, carrying genetic information.", "cid": "chromosomes-genes-alleles-7a-01", "simple": "DNA wound tightly around proteins to make one packaged structure.", "parts": [{"p": "chromo", "m": "colour"}, {"p": "some", "m": "body"}], "syll": "Chro·mo·some", "tr": {"ar": "حمض نووي ملتفّ بإحكام حول بروتينات لتكوين تركيب واحد مُعبّأ.", "tr": "Proteinlerin etrafına sıkıca sarılarak tek bir paketlenmiş yapı oluşturan DNA.", "vi": "DNA cuộn chặt quanh các protein để tạo thành một cấu trúc được đóng gói.", "prs": "DNA که محکم به دور پروتئین‌ها پیچیده تا یک ساختار بسته‌بندی‌شده بسازد."}}, {"term": "Histones", "def": "The proteins that DNA wraps around to package it neatly into a chromosome.", "cid": "chromosomes-genes-alleles-7a-02", "simple": "Proteins that DNA wraps around to pack it up neatly.", "syll": "His·tones", "tr": {"ar": "بروتينات يلتفّ حولها الحمض النووي لتعبئته بشكل مرتّب.", "tr": "DNA'nın düzgünce paketlenmek için etrafına sarıldığı proteinler.", "vi": "Các protein mà DNA cuộn quanh để đóng gói gọn gàng.", "prs": "پروتئین‌هایی که DNA به دور آن‌ها می‌پیچد تا منظم بسته‌بندی شود."}}, {"term": "Identify this chromosome structure", "def": "A duplicated chromosome: two identical sister chromatids joined at the centromere, with telomeres at the tips.", "timg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 170\">\n<path d=\"M70 18 Q55 18 55 45 L55 78 Q55 85 62 85 Q55 85 55 92 L55 125 Q55 152 70 152\" fill=\"none\" stroke=\"#1f6f54\" stroke-width=\"13\" stroke-linecap=\"round\"/>\n<path d=\"M100 18 Q115 18 115 45 L115 78 Q115 85 108 85 Q115 85 115 92 L115 125 Q115 152 100 152\" fill=\"none\" stroke=\"#4f8a59\" stroke-width=\"13\" stroke-linecap=\"round\"/>\n<circle cx=\"85\" cy=\"85\" r=\"9\" fill=\"#cf8233\"/>\n<line x1=\"150\" y1=\"85\" x2=\"120\" y2=\"85\" stroke=\"#19251f\" stroke-width=\"1.5\"/><text x=\"153\" y=\"89\" font-family=\"Inter,sans-serif\" font-size=\"12\" fill=\"#19251f\">centromere<\/text>\n<line x1=\"150\" y1=\"30\" x2=\"92\" y2=\"24\" stroke=\"#19251f\" stroke-width=\"1.5\"/><text x=\"153\" y=\"34\" font-family=\"Inter,sans-serif\" font-size=\"12\" fill=\"#19251f\">telomere<\/text>\n<line x1=\"20\" y1=\"60\" x2=\"56\" y2=\"60\" stroke=\"#19251f\" stroke-width=\"1.5\"/><text x=\"2\" y=\"50\" font-family=\"Inter,sans-serif\" font-size=\"12\" fill=\"#19251f\">sister<\/text><text x=\"2\" y=\"64\" font-family=\"Inter,sans-serif\" font-size=\"12\" fill=\"#19251f\">chromatids<\/text>\n<\/svg>", "cid": "chromosomes-genes-alleles-7a-03", "simple": "A copied chromosome: two identical halves (sister chromatids) joined in the middle (centromere), with caps on the ends (telomeres).", "tr": {"ar": "كروموسوم منسوخ: نصفان متطابقان (كروماتيدان شقيقان) متّصلان في الوسط (السنترومير)، مع أغطية على الأطراف (التيلوميرات).", "tr": "Kopyalanmış bir kromozom: ortada (sentromer) birleşen iki özdeş yarı (kardeş kromatitler) ve uçlarda kapaklar (telomerler).", "vi": "Một nhiễm sắc thể đã nhân đôi: hai nửa giống hệt (nhiễm sắc tử chị em) nối ở giữa (tâm động), có mũ ở hai đầu (telomere).", "prs": "یک کروموزوم کپی‌شده: دو نیمهٔ همسان (کروماتیدهای خواهر) که در وسط (سانترومر) به هم وصل‌اند و در دو سر کلاهک دارند (تلومرها)."}}, {"term": "Sister chromatids", "def": "Two identical copies of a chromosome joined at the centromere, produced by DNA replication.", "cid": "chromosomes-genes-alleles-7a-04", "simple": "Two identical copies of a chromosome, joined in the middle.", "tr": {"ar": "نسختان متطابقتان من كروموسوم، متّصلتان في الوسط.", "tr": "Bir kromozomun ortada birleşmiş iki özdeş kopyası.", "vi": "Hai bản sao giống hệt của một nhiễm sắc thể, nối với nhau ở giữa.", "prs": "دو نسخهٔ همسان از یک کروموزوم که در وسط به هم وصل‌اند."}}, {"term": "Centromere", "def": "The region that joins sister chromatids together and acts as the attachment point for spindle fibres.", "cid": "chromosomes-genes-alleles-7a-05", "simple": "The middle point that joins the two halves of a chromosome. Fibres attach here.", "parts": [{"p": "centro", "m": "centre"}, {"p": "mere", "m": "part"}], "syll": "Cen·tro·mere", "tr": {"ar": "النقطة الوسطى التي تربط نصفي الكروموسوم. تتّصل الألياف هنا.", "tr": "Bir kromozomun iki yarısını birleştiren orta nokta. Lifler buraya bağlanır.", "vi": "Điểm ở giữa nối hai nửa của nhiễm sắc thể. Các sợi tơ bám vào đây.", "prs": "نقطهٔ میانی که دو نیمهٔ کروموزوم را به هم وصل می‌کند. رشته‌ها به اینجا می‌چسبند."}}, {"term": "Telomeres", "def": "Protective, repetitive DNA sequences at the ends of a chromosome.", "cid": "chromosomes-genes-alleles-7a-06", "simple": "Protective caps on the ends of a chromosome.", "parts": [{"p": "telo", "m": "end"}, {"p": "mere", "m": "part"}], "syll": "Te·lo·meres", "tr": {"ar": "أغطية واقية على أطراف الكروموسوم.", "tr": "Kromozomun uçlarındaki koruyucu kapaklar.", "vi": "Các mũ bảo vệ ở hai đầu nhiễm sắc thể.", "prs": "کلاهک‌های محافظ در دو سر کروموزوم."}}, {"term": "Homologous chromosomes", "def": "A matching pair of chromosomes (one maternal, one paternal) carrying the same genes in the same order, though possibly different alleles.", "cid": "chromosomes-genes-alleles-7a-07", "simple": "A pair of chromosomes, one from each parent, with the same genes in the same order.", "parts": [{"p": "homo", "m": "same"}, {"p": "logous", "m": "matching"}], "tr": {"ar": "زوج من الكروموسومات، واحد من كل والد، يحملان الجينات نفسها بالترتيب نفسه.", "tr": "Her ebeveynden bir tane gelen, aynı genleri aynı sırada taşıyan bir kromozom çifti.", "vi": "Một cặp nhiễm sắc thể, mỗi cái từ một bố hoặc mẹ, có cùng các gen theo cùng thứ tự.", "prs": "یک جفت کروموزوم، یکی از هر والد، با ژن‌های یکسان به همان ترتیب."}}, {"term": "Sister chromatids vs homologous chromosomes", "def": "Sister chromatids are identical copies of one chromosome; homologous chromosomes are a pair carrying the same genes but possibly different alleles.", "cid": "chromosomes-genes-alleles-7a-08", "simple": "Sister chromatids are exact copies of one chromosome. Homologous ones are a pair with the same genes but maybe different versions.", "tr": {"ar": "الكروماتيدان الشقيقان نسختان طبق الأصل من كروموسوم واحد. أمّا المتماثلان فهما زوج يحمل الجينات نفسها لكن ربّما بنسخ مختلفة.", "tr": "Kardeş kromatitler bir kromozomun birebir kopyalarıdır. Homolog olanlar ise aynı genleri taşıyan ama belki farklı sürümleri olan bir çifttir.", "vi": "Nhiễm sắc tử chị em là bản sao y hệt của một nhiễm sắc thể. Cặp tương đồng có cùng gen nhưng có thể khác phiên bản.", "prs": "کروماتیدهای خواهر نسخه‌های دقیق یک کروموزوم‌اند. اما کروموزوم‌های همتا یک جفت‌اند با ژن‌های یکسان ولی شاید نسخه‌های متفاوت."}}, {"term": "Locus", "def": "The specific position of a gene on a chromosome.", "cid": "chromosomes-genes-alleles-7a-09", "simple": "The exact place where a gene sits on a chromosome.", "syll": "Lo·cus", "tr": {"ar": "الموضع الدقيق الذي يقع فيه الجين على الكروموسوم.", "tr": "Bir genin kromozom üzerinde bulunduğu kesin yer.", "vi": "Vị trí chính xác của một gen trên nhiễm sắc thể.", "prs": "جای دقیق یک ژن روی کروموزوم."}}, {"term": "Allele", "def": "A different version (variant) of a gene.", "cid": "chromosomes-genes-alleles-7a-10", "simple": "A different version of a gene.", "parts": [{"p": "allele", "m": "an 'other' version (from Greek allos = other)"}], "syll": "Al·lele", "tr": {"ar": "نسخة مختلفة من الجين.", "tr": "Bir genin farklı bir sürümü.", "vi": "Một phiên bản khác của một gen.", "prs": "نسخه‌ای متفاوت از یک ژن."}}, {"term": "Genome", "def": "The complete set of genetic material (all the DNA) of an organism.", "cid": "chromosomes-genes-alleles-7a-11", "simple": "All of an organism's DNA.", "parts": [{"p": "gen", "m": "gene"}, {"p": "ome", "m": "whole set"}], "syll": "Ge·nome", "tr": {"ar": "كامل الحمض النووي للكائن الحي.", "tr": "Bir organizmanın tüm DNA'sı.", "vi": "Toàn bộ DNA của một sinh vật.", "prs": "تمام DNA یک موجود زنده."}}, {"term": "Diploid (2n)", "def": "A cell with two copies of each chromosome, one from each parent (human body cells have 46).", "cid": "chromosomes-genes-alleles-7a-12", "simple": "A cell with two of each chromosome, one from each parent. Human body cells have 46.", "parts": [{"p": "di", "m": "two"}, {"p": "ploid", "m": "set"}], "syll": "Di·ploid", "tr": {"ar": "خلية بها نسختان من كل كروموسوم، واحدة من كل والد. خلايا جسم الإنسان بها 46.", "tr": "Her kromozomdan ikişer tane bulunan, her ebeveynden biri gelen bir hücre. İnsan vücut hücrelerinde 46 tane vardır.", "vi": "Tế bào có hai bản của mỗi nhiễm sắc thể, mỗi bản từ một bố hoặc mẹ. Tế bào cơ thể người có 46.", "prs": "سلولی که از هر کروموزوم دو نسخه دارد، یکی از هر والد. سلول‌های بدن انسان ۴۶ کروموزوم دارند."}}, {"term": "Haploid (n)", "def": "A cell with one copy of each chromosome (human gametes have 23).", "cid": "chromosomes-genes-alleles-7a-13", "simple": "A cell with one of each chromosome. Human egg and sperm have 23.", "parts": [{"p": "haplo", "m": "single"}, {"p": "ploid", "m": "set"}], "syll": "Hap·loid", "tr": {"ar": "خلية بها نسخة واحدة من كل كروموسوم. بويضة الإنسان والحيوان المنوي بهما 23.", "tr": "Her kromozomdan birer tane bulunan bir hücre. İnsan yumurtası ve spermi 23 tane taşır.", "vi": "Tế bào có một bản của mỗi nhiễm sắc thể. Trứng và tinh trùng người có 23.", "prs": "سلولی که از هر کروموزوم یک نسخه دارد. تخمک و اسپرم انسان ۲۳ کروموزوم دارند."}}, {"term": "Karyotype", "def": "An ordered image of all of an organism's chromosomes, arranged by size and shape.", "cid": "chromosomes-genes-alleles-7a-14", "simple": "A sorted picture of all an organism's chromosomes, lined up by size.", "parts": [{"p": "karyo", "m": "nucleus"}, {"p": "type", "m": "picture / kind"}], "syll": "Kar·y·o·type", "tr": {"ar": "صورة مرتّبة لجميع كروموسومات الكائن، مصفوفة حسب الحجم.", "tr": "Bir organizmanın tüm kromozomlarının boyuta göre dizilmiş düzenli bir görüntüsü.", "vi": "Hình ảnh sắp xếp tất cả nhiễm sắc thể của một sinh vật, xếp theo kích thước.", "prs": "تصویری مرتب از همهٔ کروموزوم‌های یک موجود که بر اساس اندازه ردیف شده‌اند."}}, {"term": "Human karyotype", "def": "46 chromosomes arranged as 23 pairs: 22 pairs of autosomes plus one pair of sex chromosomes.", "cid": "chromosomes-genes-alleles-7a-15", "simple": "46 chromosomes in 23 pairs: 22 normal pairs and 1 sex pair.", "tr": {"ar": "46 كروموسومًا في 23 زوجًا: 22 زوجًا عاديًّا وزوج جنسي واحد.", "tr": "23 çift hâlinde 46 kromozom: 22 normal çift ve 1 cinsiyet çifti.", "vi": "46 nhiễm sắc thể trong 23 cặp: 22 cặp thường và 1 cặp giới tính.", "prs": "۴۶ کروموزوم در ۲۳ جفت: ۲۲ جفت معمولی و ۱ جفت جنسی."}}, {"term": "Autosomes", "def": "The 22 pairs of chromosomes that are not sex chromosomes.", "cid": "chromosomes-genes-alleles-7a-16", "simple": "The 22 pairs of chromosomes that are not the sex pair.", "parts": [{"p": "auto", "m": "self"}, {"p": "some", "m": "body"}], "syll": "Au·to·somes", "tr": {"ar": "الأزواج الـ22 من الكروموسومات التي ليست الزوج الجنسي.", "tr": "Cinsiyet çifti olmayan 22 çift kromozom.", "vi": "22 cặp nhiễm sắc thể không phải cặp giới tính.", "prs": "۲۲ جفت کروموزوم که جفت جنسی نیستند."}}, {"term": "Sex chromosomes", "def": "The pair of chromosomes that determine biological sex (XX in females, XY in males).", "cid": "chromosomes-genes-alleles-7a-17", "simple": "The pair that sets biological sex: XX female, XY male.", "tr": {"ar": "الزوج الذي يحدّد الجنس البيولوجي: XX أنثى، XY ذكر.", "tr": "Biyolojik cinsiyeti belirleyen çift: XX dişi, XY erkek.", "vi": "Cặp quy định giới tính sinh học: XX là nữ, XY là nam.", "prs": "جفتی که جنسیت زیستی را تعیین می‌کند: XX ماده، XY نر."}}, {"term": "Karyotype anomaly example", "def": "Trisomy 21 (Down syndrome) — an extra copy of chromosome 21, giving 47 chromosomes.", "cid": "chromosomes-genes-alleles-7a-18", "simple": "Down syndrome (trisomy 21): an extra copy of chromosome 21, so 47 in total.", "tr": {"ar": "متلازمة داون (التثلّث الصبغي 21): نسخة إضافية من الكروموسوم 21، فيصبح المجموع 47.", "tr": "Down sendromu (trizomi 21): 21. kromozomdan fazladan bir kopya, yani toplam 47.", "vi": "Hội chứng Down (tam nhiễm 21): có thêm một bản nhiễm sắc thể 21, tổng cộng 47.", "prs": "سندرم داون (تریزومی ۲۱): یک نسخهٔ اضافی از کروموزوم ۲۱، پس در مجموع ۴۷ کروموزوم."}}], "chapter": "7A", "order": 1, "sid": "chromosomes-genes-alleles-7a"}, {"name": "Meiosis & Gamete Formation (7B)", "cards": [{"term": "Meiosis", "def": "Cell division that produces four genetically distinct haploid gametes from one diploid parent cell.", "cid": "meiosis-gamete-formation-7b-01", "simple": "Cell division that makes four sex cells, each with half the chromosomes and all different.", "parts": [{"p": "meio", "m": "to lessen"}, {"p": "sis", "m": "process"}], "syll": "Mei·o·sis", "tr": {"ar": "انقسام خلوي يُنتج أربع خلايا جنسية، كلٌّ منها بنصف عدد الكروموسومات وكلّها مختلفة.", "tr": "Her biri kromozomların yarısına sahip ve hepsi farklı olan dört eşey hücresi oluşturan hücre bölünmesi.", "vi": "Sự phân bào tạo ra bốn tế bào sinh dục, mỗi tế bào có một nửa số nhiễm sắc thể và tất cả đều khác nhau.", "prs": "تقسیم سلولی که چهار سلول جنسی می‌سازد، هرکدام با نصف کروموزوم‌ها و همه متفاوت."}}, {"term": "Purpose of meiosis", "def": "To halve the chromosome number for sexual reproduction (so fertilisation restores the diploid number) and to generate genetic variation.", "cid": "meiosis-gamete-formation-7b-02", "simple": "To halve the chromosomes for sex cells, and to mix genes so offspring vary.", "tr": {"ar": "لتنصيف عدد الكروموسومات في الخلايا الجنسية، ولخلط الجينات لتختلف الذرّية.", "tr": "Eşey hücrelerinde kromozom sayısını yarıya indirmek ve genleri karıştırarak yavruların farklı olmasını sağlamak.", "vi": "Để giảm một nửa số nhiễm sắc thể cho tế bào sinh dục, và trộn gen để đời con đa dạng.", "prs": "برای نصف‌کردن تعداد کروموزوم‌ها در سلول‌های جنسی و آمیختن ژن‌ها تا فرزندان متفاوت شوند."}}, {"term": "Meiosis I", "def": "The first division, which separates homologous chromosomes — reducing the cell from diploid to haploid (reductional division).", "cid": "meiosis-gamete-formation-7b-03", "simple": "The first split. It separates the chromosome pairs, halving the number.", "tr": {"ar": "الانقسام الأول. يفصل أزواج الكروموسومات فيُنصّف عددها.", "tr": "Birinci bölünme. Kromozom çiftlerini ayırarak sayıyı yarıya indirir.", "vi": "Lần phân chia thứ nhất. Nó tách các cặp nhiễm sắc thể, làm giảm một nửa số lượng.", "prs": "تقسیم اول. جفت‌های کروموزوم را جدا می‌کند و تعداد را نصف می‌کند."}}, {"term": "Meiosis II", "def": "The second division, which separates sister chromatids (like mitosis), producing four haploid cells.", "cid": "meiosis-gamete-formation-7b-04", "simple": "The second split. It separates the copies, like normal cell division.", "tr": {"ar": "الانقسام الثاني. يفصل النسخ، مثل الانقسام الخلوي العادي.", "tr": "İkinci bölünme. Normal hücre bölünmesi gibi kopyaları ayırır.", "vi": "Lần phân chia thứ hai. Nó tách các bản sao, giống như phân bào thường.", "prs": "تقسیم دوم. نسخه‌ها را جدا می‌کند، مانند تقسیم سلولی معمولی."}}, {"term": "Prophase I", "def": "Chromosomes condense, homologous pairs come together (synapsis) and crossing over occurs.", "cid": "meiosis-gamete-formation-7b-05", "simple": "Early meiosis: chromosomes thicken, pairs come together, and they swap pieces (crossing over).", "parts": [{"p": "pro", "m": "before"}, {"p": "phase", "m": "stage"}], "tr": {"ar": "بداية الانقسام المنصّف: تتكثّف الكروموسومات، وتتقارب الأزواج، وتتبادل القطع (العبور).", "tr": "Mayozun başı: kromozomlar kalınlaşır, çiftler bir araya gelir ve parça değiş tokuş eder (krossing over).", "vi": "Đầu giảm phân: nhiễm sắc thể dày lên, các cặp ghép lại và trao đổi đoạn (trao đổi chéo).", "prs": "آغاز میوز: کروموزوم‌ها ضخیم می‌شوند، جفت‌ها کنار هم می‌آیند و قطعه‌ها را مبادله می‌کنند (کراسینگ‌اور)."}}, {"term": "Metaphase I", "def": "Homologous pairs line up along the cell's equator, oriented randomly (independent assortment).", "cid": "meiosis-gamete-formation-7b-06", "simple": "Chromosome pairs line up in the middle in random order.", "parts": [{"p": "meta", "m": "across / middle"}, {"p": "phase", "m": "stage"}], "tr": {"ar": "تصطفّ أزواج الكروموسومات في الوسط بترتيب عشوائي.", "tr": "Kromozom çiftleri ortada rastgele bir sırayla dizilir.", "vi": "Các cặp nhiễm sắc thể xếp hàng ở giữa theo thứ tự ngẫu nhiên.", "prs": "جفت‌های کروموزوم در وسط به ترتیب تصادفی ردیف می‌شوند."}}, {"term": "Anaphase I", "def": "Homologous chromosomes are pulled to opposite poles of the cell.", "cid": "meiosis-gamete-formation-7b-07", "simple": "The chromosome pairs are pulled apart to opposite ends.", "parts": [{"p": "ana", "m": "apart / up"}, {"p": "phase", "m": "stage"}], "tr": {"ar": "تُسحب أزواج الكروموسومات إلى الطرفين المتقابلين.", "tr": "Kromozom çiftleri zıt uçlara çekilir.", "vi": "Các cặp nhiễm sắc thể bị kéo về hai cực đối diện.", "prs": "جفت‌های کروموزوم به دو سر مخالف کشیده می‌شوند."}}, {"term": "Crossing over", "def": "The exchange of genetic material between homologous chromosomes during prophase I, creating new allele combinations.", "cid": "meiosis-gamete-formation-7b-08", "simple": "Matching chromosomes swap pieces, making new mixes of genes.", "tr": {"ar": "تتبادل الكروموسومات المتماثلة القطع، فتنشأ خلطات جديدة من الجينات.", "tr": "Eşleşen kromozomlar parça değiş tokuş ederek yeni gen karışımları oluşturur.", "vi": "Các nhiễm sắc thể tương đồng trao đổi đoạn, tạo ra tổ hợp gen mới.", "prs": "کروموزوم‌های همتا قطعه‌ها را مبادله می‌کنند و ترکیب‌های ژنی تازه می‌سازند."}}, {"term": "Mitosis vs meiosis", "def": "Mitosis: one division, two identical diploid cells (growth/repair). Meiosis: two divisions, four genetically varied haploid cells (gametes).", "cid": "meiosis-gamete-formation-7b-09", "simple": "Mitosis: one split, two identical cells, for growth. Meiosis: two splits, four different sex cells.", "tr": {"ar": "الانقسام المتساوي: انقسام واحد، خليتان متطابقتان، للنمو. الانقسام المنصّف: انقسامان، أربع خلايا جنسية مختلفة.", "tr": "Mitoz: tek bölünme, iki özdeş hücre, büyüme için. Mayoz: iki bölünme, dört farklı eşey hücresi.", "vi": "Nguyên phân: một lần chia, hai tế bào giống hệt, để lớn lên. Giảm phân: hai lần chia, bốn tế bào sinh dục khác nhau.", "prs": "میتوز: یک تقسیم، دو سلول همسان، برای رشد. میوز: دو تقسیم، چهار سلول جنسی متفاوت."}}, {"term": "Gametes", "def": "Haploid sex cells (sperm and egg) that fuse during fertilisation.", "cid": "meiosis-gamete-formation-7b-10", "simple": "Sex cells (egg and sperm) that join at fertilisation.", "parts": [{"p": "gam", "m": "marriage / joining"}, {"p": "ete", "m": "cell"}], "syll": "Gam·etes", "tr": {"ar": "خلايا جنسية (بويضة وحيوان منوي) تتّحد عند الإخصاب.", "tr": "Döllenmede birleşen eşey hücreleri (yumurta ve sperm).", "vi": "Tế bào sinh dục (trứng và tinh trùng) kết hợp khi thụ tinh.", "prs": "سلول‌های جنسی (تخمک و اسپرم) که هنگام لقاح به هم می‌پیوندند."}}, {"term": "Number of cells from meiosis", "def": "One diploid cell produces four haploid daughter cells.", "cid": "meiosis-gamete-formation-7b-11", "simple": "One cell makes four cells.", "tr": {"ar": "خلية واحدة تُنتج أربع خلايا.", "tr": "Bir hücre dört hücre oluşturur.", "vi": "Một tế bào tạo ra bốn tế bào.", "prs": "یک سلول چهار سلول می‌سازد."}}, {"term": "Timing of meiosis in males", "def": "Sperm are produced continuously from puberty onwards.", "cid": "meiosis-gamete-formation-7b-12", "simple": "Sperm are made non-stop from puberty.", "tr": {"ar": "تُنتَج الحيوانات المنوية باستمرار منذ البلوغ.", "tr": "Sperm ergenlikten itibaren sürekli üretilir.", "vi": "Tinh trùng được tạo ra liên tục từ tuổi dậy thì.", "prs": "اسپرم از بلوغ به بعد به‌طور پیوسته ساخته می‌شود."}}, {"term": "Timing of meiosis in females", "def": "Egg production begins before birth, pauses, and is completed one egg at a time from puberty.", "cid": "meiosis-gamete-formation-7b-13", "simple": "Eggs start before birth, then pause, and finish one at a time from puberty.", "tr": {"ar": "تبدأ البويضات قبل الولادة، ثم تتوقّف، وتكتمل واحدة تلو الأخرى منذ البلوغ.", "tr": "Yumurtalar doğumdan önce başlar, duraklar ve ergenlikten itibaren teker teker tamamlanır.", "vi": "Trứng bắt đầu trước khi sinh, rồi tạm dừng, và hoàn thành từng cái một từ tuổi dậy thì.", "prs": "تخمک‌ها پیش از تولد آغاز می‌شوند، سپس متوقف می‌مانند و از بلوغ یکی‌یکی کامل می‌شوند."}}], "chapter": "7B", "order": 1, "sid": "meiosis-gamete-formation-7b"}, {"name": "Genotype & Phenotype (7C)", "cards": [{"term": "Genotype", "def": "The genetic makeup — the combination of alleles an organism carries for a trait.", "cid": "genotype-phenotype-7c-01", "simple": "The set of alleles (gene versions) an organism has for a trait.", "parts": [{"p": "geno", "m": "gene / origin"}, {"p": "type", "m": "kind"}], "syll": "Gen·o·type", "tr": {"ar": "مجموعة الأليلات (نسخ الجين) التي يحملها الكائن لصفة ما.", "tr": "Bir organizmanın bir özellik için sahip olduğu alel (gen sürümleri) takımı.", "vi": "Tập hợp các alen (phiên bản gen) mà một sinh vật có cho một tính trạng.", "prs": "مجموعهٔ اَلِل‌ها (نسخه‌های ژن) که یک موجود برای یک صفت دارد."}}, {"term": "Phenotype", "def": "The observable physical or biochemical characteristics of an organism, resulting from genotype and environment.", "cid": "genotype-phenotype-7c-02", "simple": "The traits you can see or measure, set by genes and surroundings.", "parts": [{"p": "pheno", "m": "to show / appear"}, {"p": "type", "m": "kind"}], "syll": "Phe·no·type", "tr": {"ar": "الصفات التي يمكن رؤيتها أو قياسها، وتحدّدها الجينات والبيئة.", "tr": "Genler ve çevre tarafından belirlenen, görülebilen veya ölçülebilen özellikler.", "vi": "Những tính trạng có thể thấy hoặc đo được, do gen và môi trường quyết định.", "prs": "صفت‌هایی که می‌توان دید یا اندازه گرفت و ژن‌ها و محیط آن‌ها را تعیین می‌کنند."}}, {"term": "How genotype influences phenotype", "def": "The alleles in the genotype are instructions to make proteins; those proteins build the structures or carry out the reactions that produce the observable trait.", "cid": "genotype-phenotype-7c-03", "simple": "Genes are used to make proteins, and those proteins build the trait you see.", "tr": {"ar": "تُستخدَم الجينات لصنع البروتينات، وهذه البروتينات تبني الصفة التي تراها.", "tr": "Genler protein yapmak için kullanılır ve bu proteinler gördüğün özelliği oluşturur.", "vi": "Gen được dùng để tạo protein, và các protein đó tạo nên tính trạng bạn thấy.", "prs": "ژن‌ها برای ساختن پروتئین به کار می‌روند و این پروتئین‌ها صفتی را که می‌بینی می‌سازند."}}, {"term": "Dominant allele", "def": "An allele that is expressed in the phenotype whenever at least one copy is present; shown with a capital letter.", "cid": "genotype-phenotype-7c-04", "simple": "An allele that shows up even with only one copy. Written as a capital letter.", "tr": {"ar": "أليل يظهر حتى مع وجود نسخة واحدة. يُكتب بحرف كبير.", "tr": "Tek bir kopyayla bile ortaya çıkan alel. Büyük harfle yazılır.", "vi": "Alen trội biểu hiện ngay cả khi chỉ có một bản. Viết bằng chữ in hoa.", "prs": "اَلِلی که حتی با یک نسخه هم ظاهر می‌شود. با حرف بزرگ نوشته می‌شود."}}, {"term": "Recessive allele", "def": "An allele expressed only when two copies are present (homozygous); shown with a lowercase letter.", "cid": "genotype-phenotype-7c-05", "simple": "An allele that only shows up with two copies. Written as a small letter.", "tr": {"ar": "أليل لا يظهر إلا مع وجود نسختين. يُكتب بحرف صغير.", "tr": "Yalnızca iki kopyayla ortaya çıkan alel. Küçük harfle yazılır.", "vi": "Alen lặn chỉ biểu hiện khi có hai bản. Viết bằng chữ thường.", "prs": "اَلِلی که فقط با دو نسخه ظاهر می‌شود. با حرف کوچک نوشته می‌شود."}}, {"term": "Homozygous", "def": "Having two identical alleles for a gene (e.g. AA or aa).", "cid": "genotype-phenotype-7c-06", "simple": "Two of the same allele (like AA or aa).", "parts": [{"p": "homo", "m": "same"}, {"p": "zygous", "m": "joined"}], "syll": "Ho·mo·zy·gous", "tr": {"ar": "أليلان متماثلان (مثل AA أو aa).", "tr": "Aynı iki alel (AA veya aa gibi).", "vi": "Hai alen giống nhau (như AA hoặc aa).", "prs": "دو اَلِل یکسان (مانند AA یا aa)."}}, {"term": "Heterozygous", "def": "Having two different alleles for a gene (e.g. Aa).", "cid": "genotype-phenotype-7c-07", "simple": "Two different alleles (like Aa).", "parts": [{"p": "hetero", "m": "different"}, {"p": "zygous", "m": "joined"}], "syll": "He·te·ro·zy·gous", "tr": {"ar": "أليلان مختلفان (مثل Aa).", "tr": "İki farklı alel (Aa gibi).", "vi": "Hai alen khác nhau (như Aa).", "prs": "دو اَلِل متفاوت (مانند Aa)."}}, {"term": "Carrier", "def": "A heterozygous individual who carries a recessive allele but does not show the trait.", "cid": "genotype-phenotype-7c-08", "simple": "Someone with one recessive allele who doesn't show the trait but can pass it on.", "syll": "Car·ri·er", "tr": {"ar": "شخص يحمل أليلًا متنحّيًا واحدًا ولا تظهر عليه الصفة لكنه قد ينقلها.", "tr": "Tek bir çekinik alel taşıyan, özelliği göstermeyen ama aktarabilen kişi.", "vi": "Người mang một alen lặn, không biểu hiện tính trạng nhưng có thể truyền lại.", "prs": "کسی که یک اَلِل مغلوب دارد و صفت را نشان نمی‌دهد اما می‌تواند آن را منتقل کند."}}, {"term": "Phenotype equation", "def": "Phenotype = genotype + environment.", "cid": "genotype-phenotype-7c-09", "simple": "What you see = your genes + your surroundings.", "tr": {"ar": "ما تراه = جيناتك + بيئتك.", "tr": "Gördüğün = genlerin + çevren.", "vi": "Cái bạn thấy = gen của bạn + môi trường của bạn.", "prs": "آنچه می‌بینی = ژن‌هایت + محیطت."}}], "chapter": "7C", "order": 1, "sid": "genotype-phenotype-7c"}, {"name": "Codominance & Incomplete Dominance (7C)", "cards": [{"term": "Incomplete dominance", "def": "An inheritance pattern where the heterozygote shows a blended, intermediate phenotype between the two homozygotes.", "cid": "codominance-incomplete-domin-01", "simple": "The heterozygote is a blend (a mix) of the two parents.", "tr": {"ar": "يكون الفرد الخليط مزيجًا (خلطًا) بين الوالدين.", "tr": "Heterozigot, iki ebeveynin bir karışımıdır.", "vi": "Thể dị hợp là sự pha trộn giữa hai bố mẹ.", "prs": "هتروزیگوت آمیزه‌ای (ترکیبی) از دو والد است."}}, {"term": "Incomplete dominance example", "def": "Red × white snapdragons produce pink-flowered heterozygotes (the colours blend).", "cid": "codominance-incomplete-domin-02", "simple": "Red + white flowers make pink flowers.", "tr": {"ar": "زهور حمراء + بيضاء تُنتج زهورًا وردية.", "tr": "Kırmızı + beyaz çiçekler pembe çiçek verir.", "vi": "Hoa đỏ + hoa trắng tạo ra hoa hồng.", "prs": "گل‌های قرمز + سفید گل‌های صورتی می‌دهند."}}, {"term": "Codominance", "def": "An inheritance pattern where both alleles are fully and separately expressed in the heterozygote, with no blending.", "cid": "codominance-incomplete-domin-03", "simple": "Both alleles show fully at the same time, with no blending.", "parts": [{"p": "co", "m": "together"}, {"p": "dominance", "m": "showing / ruling"}], "syll": "Co·dom·i·nance", "tr": {"ar": "يظهر كلا الأليلين بالكامل في الوقت نفسه، دون امتزاج.", "tr": "Her iki alel de aynı anda tam olarak görünür, karışma olmaz.", "vi": "Cả hai alen biểu hiện đầy đủ cùng lúc, không pha trộn.", "prs": "هر دو اَلِل هم‌زمان به‌طور کامل ظاهر می‌شوند، بدون آمیختن."}}, {"term": "Codominance example", "def": "Blood group AB expresses both A and B antigens; roan cattle show both red and white hairs together.", "cid": "codominance-incomplete-domin-04", "simple": "Blood type AB shows both A and B. Roan cattle show red and white hairs together.", "tr": {"ar": "فصيلة الدم AB تُظهر A وB معًا. أبقار الرّون تُظهر شعرًا أحمر وأبيض معًا.", "tr": "AB kan grubu hem A hem B gösterir. Demir kırı sığırlar kırmızı ve beyaz kılları birlikte gösterir.", "vi": "Nhóm máu AB biểu hiện cả A và B. Bò lông lang có lông đỏ và trắng cùng nhau.", "prs": "گروه خونی AB هم A و هم B را نشان می‌دهد. گاوهای کهر موهای قرمز و سفید را با هم دارند."}}, {"term": "Phenotypic ratio for incomplete dominance", "def": "A heterozygous cross gives a 1:2:1 phenotype ratio — the phenotype ratio matches the genotype ratio because the heterozygote looks different from both homozygotes.", "cid": "codominance-incomplete-domin-05", "simple": "A cross of two blends gives 1:2:1 — the look matches the genotype counts.", "tr": {"ar": "تزاوج خليطين يعطي نسبة 1:2:1 — يطابق المظهرُ أعدادَ الطُّرز الوراثية.", "tr": "İki melezin çaprazı 1:2:1 oranı verir — görünüm, genotip sayılarıyla eşleşir.", "vi": "Lai hai thể pha trộn cho tỉ lệ 1:2:1 — kiểu hình khớp với số kiểu gen.", "prs": "آمیزش دو هتروزیگوت نسبت ۱:۲:۱ می‌دهد — ظاهر با شمار ژنوتیپ‌ها هم‌خوان است."}}, {"term": "Writing codominant / incomplete-dominance alleles", "def": "A shared capital letter with a superscript for each version, e.g. Cᴿ (red) and Cᵂ (white) — not capital vs lowercase, because neither allele is simply dominant.", "cid": "codominance-incomplete-domin-06", "simple": "Use one capital letter with small raised labels (like Cᴿ, Cᵂ), because neither version simply wins.", "tr": {"ar": "استخدم حرفًا كبيرًا واحدًا مع رموز صغيرة مرفوعة (مثل Cᴿ، Cᵂ)، لأن أيًّا من النسختين لا يَغلب ببساطة.", "tr": "Tek bir büyük harfi küçük üst simgelerle kullan (Cᴿ, Cᵂ gibi), çünkü hiçbir sürüm diğerine basitçe baskın gelmez.", "vi": "Dùng một chữ in hoa với các ký hiệu nhỏ phía trên (như Cᴿ, Cᵂ), vì không phiên bản nào đơn giản lấn át.", "prs": "یک حرف بزرگ با نشانه‌های کوچک بالا به کار ببر (مانند Cᴿ، Cᵂ)، چون هیچ‌کدام به‌سادگی غالب نمی‌شود."}}], "chapter": "7C", "order": 2, "sid": "codominance-incomplete-domin"}, {"name": "Sex-linked Inheritance (7C)", "cards": [{"term": "Sex-linked gene", "def": "A gene carried on a sex chromosome — in practice almost always the X chromosome, as the Y carries very few genes.", "cid": "sex-linked-inheritance-7c-01", "simple": "A gene on a sex chromosome, almost always the X.", "tr": {"ar": "جين على كروموسوم جنسي، وغالبًا على X تقريبًا دائمًا.", "tr": "Cinsiyet kromozomunda, neredeyse her zaman X üzerinde bulunan bir gen.", "vi": "Một gen trên nhiễm sắc thể giới tính, hầu như luôn trên X.", "prs": "ژنی روی کروموزوم جنسی، تقریباً همیشه روی X."}}, {"term": "X-linked recessive trait", "def": "A trait caused by a recessive allele carried on the X chromosome.", "cid": "sex-linked-inheritance-7c-02", "simple": "A trait from a recessive allele on the X chromosome.", "tr": {"ar": "صفة ناتجة عن أليل متنحٍّ على كروموسوم X.", "tr": "X kromozomundaki çekinik bir alelden kaynaklanan özellik.", "vi": "Tính trạng do một alen lặn trên nhiễm sắc thể X.", "prs": "صفتی که از یک اَلِل مغلوب روی کروموزوم X پدید می‌آید."}}, {"term": "Why X-linked recessive traits are more common in males", "def": "A male has only one X chromosome (XY), so a single recessive allele on it is enough to show the trait. A female (XX) would need two copies.", "cid": "sex-linked-inheritance-7c-03", "simple": "Males have only one X, so one recessive allele is enough to show. Females need two.", "tr": {"ar": "للذكور كروموسوم X واحد فقط، فيكفي أليل متنحٍّ واحد لظهور الصفة. أما الإناث فتحتاج إلى نسختين.", "tr": "Erkeklerde yalnızca bir X vardır, bu yüzden tek bir çekinik alel yeterlidir. Kadınların iki tane gerekir.", "vi": "Nam chỉ có một X, nên một alen lặn là đủ để biểu hiện. Nữ cần hai.", "prs": "مردان فقط یک X دارند، پس یک اَلِل مغلوب کافی است. زنان به دو نسخه نیاز دارند."}}, {"term": "Carrier female (X-linked)", "def": "A heterozygous female (Xᴬ Xᵃ) who carries the recessive allele but does not show the trait, because her other X carries the dominant allele.", "cid": "sex-linked-inheritance-7c-04", "simple": "A female with one copy (Xᴬ Xᵃ). She carries it but does not show it.", "tr": {"ar": "أنثى تحمل نسخة واحدة (Xᴬ Xᵃ). تحملها لكن لا تظهر عليها.", "tr": "Tek kopya taşıyan bir kadın (Xᴬ Xᵃ). Taşır ama göstermez.", "vi": "Người nữ mang một bản (Xᴬ Xᵃ). Cô ấy mang nhưng không biểu hiện.", "prs": "زنی که یک نسخه دارد (Xᴬ Xᵃ). آن را حمل می‌کند اما نشان نمی‌دهد."}}, {"term": "Affected male genotype (X-linked recessive)", "def": "Xᵃ Y — the single recessive allele on his only X chromosome is expressed.", "cid": "sex-linked-inheritance-7c-05", "simple": "Xᵃ Y — his one X has the recessive allele, so he shows the trait.", "tr": {"ar": "Xᵃ Y — كروموسوم X الوحيد لديه يحمل الأليل المتنحّي، فتظهر عليه الصفة.", "tr": "Xᵃ Y — tek X'i çekinik aleli taşır, bu yüzden özelliği gösterir.", "vi": "Xᵃ Y — chiếc X duy nhất của anh ấy mang alen lặn, nên anh ấy biểu hiện tính trạng.", "prs": "Xᵃ Y — تنها X او اَلِل مغلوب را دارد، پس صفت را نشان می‌دهد."}}, {"term": "X-linked disorder examples", "def": "Red-green colour blindness and haemophilia.", "cid": "sex-linked-inheritance-7c-06", "simple": "Red-green colour blindness and haemophilia.", "tr": {"ar": "عمى الألوان الأحمر-الأخضر والهيموفيليا (نزف الدم).", "tr": "Kırmızı-yeşil renk körlüğü ve hemofili.", "vi": "Mù màu đỏ-lục và bệnh máu khó đông.", "prs": "کوررنگی قرمز-سبز و هموفیلی."}}, {"term": "Carrier mother × unaffected father", "def": "Cross Xᴬ Xᵃ × Xᴬ Y: on average half the sons are affected, while daughters are unaffected but half are carriers.", "cid": "sex-linked-inheritance-7c-07", "simple": "About half the sons show the trait. Daughters don't, but half carry it.", "tr": {"ar": "نحو نصف الأبناء الذكور تظهر عليهم الصفة. البنات لا تظهر عليهنّ، لكن نصفهنّ حاملات.", "tr": "Oğulların yaklaşık yarısı özelliği gösterir. Kızlar göstermez ama yarısı taşıyıcıdır.", "vi": "Khoảng một nửa con trai biểu hiện tính trạng. Con gái thì không, nhưng một nửa là người mang.", "prs": "حدود نیمی از پسران صفت را نشان می‌دهند. دختران نشان نمی‌دهند، اما نیمی از آن‌ها ناقل‌اند."}}, {"term": "Y-linked inheritance", "def": "Caused by genes on the Y chromosome, so the trait passes only from father to son.", "cid": "sex-linked-inheritance-7c-08", "simple": "Genes on the Y. Passed only from father to son.", "tr": {"ar": "جينات على كروموسوم Y. تنتقل من الأب إلى الابن فقط.", "tr": "Y kromozomundaki genler. Yalnızca babadan oğula geçer.", "vi": "Các gen trên nhiễm sắc thể Y. Chỉ truyền từ cha sang con trai.", "prs": "ژن‌های روی کروموزوم Y. فقط از پدر به پسر منتقل می‌شوند."}}], "chapter": "7C", "order": 3, "sid": "sex-linked-inheritance-7c"}, {"name": "Multiple Alleles (7C)", "cards": [{"term": "Multiple alleles", "def": "When a gene exists in more than two allele versions within a population. Any one individual still carries only two of them.", "cid": "multiple-alleles-7c-01", "simple": "A gene that has more than two versions in the population. Each person still has only two.", "tr": {"ar": "جين له أكثر من نسختين في المجتمع. لكن لكل فرد نسختان فقط.", "tr": "Toplulukta ikiden fazla sürümü olan bir gen. Yine de her bireyde yalnızca iki tane bulunur.", "vi": "Một gen có hơn hai phiên bản trong quần thể. Mỗi cá thể vẫn chỉ có hai.", "prs": "ژنی که در جمعیت بیش از دو نسخه دارد. اما هر فرد فقط دو نسخه دارد."}}, {"term": "ABO blood group alleles", "def": "Three alleles: Iᴬ, Iᴮ and i.", "cid": "multiple-alleles-7c-02", "simple": "Three versions: Iᴬ, Iᴮ and i.", "tr": {"ar": "ثلاث نسخ: Iᴬ وIᴮ وi.", "tr": "Üç sürüm: Iᴬ, Iᴮ ve i.", "vi": "Ba phiên bản: Iᴬ, Iᴮ và i.", "prs": "سه نسخه: Iᴬ، Iᴮ و i."}}, {"term": "ABO dominance pattern", "def": "Iᴬ and Iᴮ are codominant with each other, and both are dominant over i.", "cid": "multiple-alleles-7c-03", "simple": "Iᴬ and Iᴮ both show together. Both beat i.", "tr": {"ar": "Iᴬ وIᴮ يظهران معًا. وكلاهما يَغلب i.", "tr": "Iᴬ ve Iᴮ birlikte görünür. İkisi de i'ye baskındır.", "vi": "Iᴬ và Iᴮ cùng biểu hiện. Cả hai đều trội hơn i.", "prs": "Iᴬ و Iᴮ با هم ظاهر می‌شوند. هر دو بر i غالب‌اند."}}, {"term": "Blood group A genotypes", "def": "Iᴬ Iᴬ or Iᴬ i.", "cid": "multiple-alleles-7c-04", "simple": "Iᴬ Iᴬ or Iᴬ i.", "tr": {"ar": "Iᴬ Iᴬ أو Iᴬ i.", "tr": "Iᴬ Iᴬ veya Iᴬ i.", "vi": "Iᴬ Iᴬ hoặc Iᴬ i.", "prs": "Iᴬ Iᴬ یا Iᴬ i."}}, {"term": "Blood group B genotypes", "def": "Iᴮ Iᴮ or Iᴮ i.", "cid": "multiple-alleles-7c-05", "simple": "Iᴮ Iᴮ or Iᴮ i.", "tr": {"ar": "Iᴮ Iᴮ أو Iᴮ i.", "tr": "Iᴮ Iᴮ veya Iᴮ i.", "vi": "Iᴮ Iᴮ hoặc Iᴮ i.", "prs": "Iᴮ Iᴮ یا Iᴮ i."}}, {"term": "Blood group AB genotype", "def": "Iᴬ Iᴮ — both antigens are expressed (codominance).", "cid": "multiple-alleles-7c-06", "simple": "Iᴬ Iᴮ — both A and B show.", "tr": {"ar": "Iᴬ Iᴮ — يظهر A وB معًا.", "tr": "Iᴬ Iᴮ — hem A hem B görünür.", "vi": "Iᴬ Iᴮ — cả A và B đều biểu hiện.", "prs": "Iᴬ Iᴮ — هم A و هم B ظاهر می‌شوند."}}, {"term": "Blood group O genotype", "def": "ii — homozygous for the recessive allele.", "cid": "multiple-alleles-7c-07", "simple": "ii — two recessive copies.", "tr": {"ar": "ii — نسختان متنحّيتان.", "tr": "ii — iki çekinik kopya.", "vi": "ii — hai bản lặn.", "prs": "ii — دو نسخهٔ مغلوب."}}, {"term": "Effect of multiple alleles on diversity", "def": "They increase the number of possible genotypes and phenotypes in a population, raising genetic diversity.", "cid": "multiple-alleles-7c-08", "simple": "More gene versions means more possible types in the population.", "tr": {"ar": "كثرة نسخ الجين تعني أنواعًا ممكنة أكثر في المجتمع.", "tr": "Daha çok gen sürümü, toplulukta daha çok olası tip demektir.", "vi": "Càng nhiều phiên bản gen thì càng nhiều kiểu có thể có trong quần thể.", "prs": "نسخه‌های بیشتر ژن یعنی انواع ممکن بیشتر در جمعیت."}}], "chapter": "7C", "order": 4, "sid": "multiple-alleles-7c"}, {"name": "Nature, Nurture & Epigenetics (7D)", "cards": [{"term": "Nature vs nurture", "def": "The relative contributions of genetics (nature) and the environment (nurture) to an organism's phenotype.", "cid": "nature-nurture-epigenetics-7-01", "simple": "How much a trait comes from genes (nature) versus surroundings (nurture).", "tr": {"ar": "مدى نشوء الصفة من الجينات (الطبيعة) مقابل البيئة (التنشئة).", "tr": "Bir özelliğin genlerden (doğa) mı yoksa çevreden (yetiştirme) mi geldiği oranı.", "vi": "Một tính trạng đến từ gen (bẩm sinh) hay môi trường (nuôi dưỡng) bao nhiêu.", "prs": "اینکه یک صفت چقدر از ژن‌ها (طبیعت) و چقدر از محیط (پرورش) می‌آید."}}, {"term": "Environmental effect on phenotype", "def": "An example is hydrangea flower colour changing with soil pH, or Himalayan rabbit/Siamese cat fur darkening in cooler body regions.", "cid": "nature-nurture-epigenetics-7-02", "simple": "Surroundings can change traits — e.g. soil changes hydrangea flower colour; cold darkens some animals' fur.", "tr": {"ar": "قد تغيّر البيئة الصفات — مثلًا تغيّر حموضة التربة لون زهور الكوبية؛ والبرد يُغمّق فراء بعض الحيوانات.", "tr": "Çevre özellikleri değiştirebilir — örneğin toprak ortancanın çiçek rengini değiştirir; soğuk bazı hayvanların kürkünü koyulaştırır.", "vi": "Môi trường có thể thay đổi tính trạng — ví dụ đất làm đổi màu hoa cẩm tú cầu; lạnh làm sẫm lông một số động vật.", "prs": "محیط می‌تواند صفت‌ها را تغییر دهد — مثلاً خاک رنگ گل ادریسی را عوض می‌کند؛ سرما خز برخی جانوران را تیره می‌کند."}}, {"term": "Epigenetics", "def": "Heritable changes in gene expression that do not change the underlying DNA base sequence.", "cid": "nature-nurture-epigenetics-7-03", "simple": "Changes that turn genes on or off without changing the DNA letters. They can be passed on.", "parts": [{"p": "epi", "m": "on top of"}, {"p": "genetics", "m": "genes"}], "syll": "Ep·i·ge·net·ics", "tr": {"ar": "تغيّرات تُشغّل الجينات أو تُطفئها دون تغيير حروف الحمض النووي. ويمكن أن تُورَّث.", "tr": "DNA harflerini değiştirmeden genleri açıp kapatan değişiklikler. Aktarılabilirler.", "vi": "Những thay đổi bật/tắt gen mà không đổi các chữ cái DNA. Chúng có thể di truyền.", "prs": "تغییراتی که ژن‌ها را روشن یا خاموش می‌کنند بدون تغییر حروف DNA. این تغییرها می‌توانند به ارث برسند."}}, {"term": "DNA methylation", "def": "The addition of methyl groups to DNA (often to cytosine), which usually switches a gene off or lowers its expression.", "cid": "nature-nurture-epigenetics-7-04", "simple": "Adding tiny methyl tags to DNA. This usually switches a gene off.", "parts": [{"p": "methyl", "m": "a small chemical tag"}, {"p": "ation", "m": "process of"}], "tr": {"ar": "إضافة وُسوم مثيل صغيرة إلى الحمض النووي. وهذا عادةً يُطفئ الجين.", "tr": "DNA'ya küçük metil etiketleri eklemek. Bu genellikle bir geni kapatır.", "vi": "Gắn các nhãn methyl nhỏ vào DNA. Điều này thường tắt một gen.", "prs": "افزودن برچسب‌های کوچک متیل به DNA. این کار معمولاً یک ژن را خاموش می‌کند."}}, {"term": "Are epigenetic changes reversible?", "def": "Yes — they can be added or removed and are influenced by environmental factors such as diet and stress.", "cid": "nature-nurture-epigenetics-7-05", "simple": "Yes. They can be added or removed, and things like diet and stress affect them.", "tr": {"ar": "نعم. يمكن إضافتها أو إزالتها، وتؤثّر فيها أمور مثل الغذاء والتوتّر.", "tr": "Evet. Eklenebilir veya çıkarılabilir; beslenme ve stres gibi şeyler onları etkiler.", "vi": "Có. Chúng có thể được thêm hoặc bỏ, và những thứ như chế độ ăn và căng thẳng ảnh hưởng đến chúng.", "prs": "بله. می‌توان آن‌ها را افزود یا برداشت، و چیزهایی مانند غذا و استرس بر آن‌ها اثر می‌گذارند."}}], "chapter": "7D", "order": 1, "sid": "nature-nurture-epigenetics-7"}, {"name": "Monohybrid Crosses & Mendel (7C/8A)", "cards": [{"term": "Monohybrid cross", "def": "A genetic cross that follows the inheritance of a single trait (one gene).", "cid": "monohybrid-crosses-mendel-7c-01", "simple": "A cross that follows just one trait (one gene).", "parts": [{"p": "mono", "m": "one"}, {"p": "hybrid", "m": "mix"}], "tr": {"ar": "تزاوج يتتبّع صفة واحدة فقط (جينًا واحدًا).", "tr": "Yalnızca tek bir özelliği (tek geni) izleyen bir çaprazlama.", "vi": "Phép lai chỉ theo dõi một tính trạng (một gen).", "prs": "آمیزشی که فقط یک صفت (یک ژن) را دنبال می‌کند."}}, {"term": "Mendel's law of segregation", "def": "The two alleles for a trait separate during gamete formation, so each gamete carries only one allele.", "cid": "monohybrid-crosses-mendel-7c-02", "simple": "The two alleles split up when sex cells form, so each cell gets one.", "tr": {"ar": "ينفصل الأليلان عند تكوّن الخلايا الجنسية، فتأخذ كل خلية واحدًا.", "tr": "İki alel, eşey hücreleri oluşurken ayrılır, böylece her hücre birini alır.", "vi": "Hai alen tách ra khi tế bào sinh dục hình thành, nên mỗi tế bào nhận một alen.", "prs": "هنگام ساخت سلول‌های جنسی، دو اَلِل جدا می‌شوند و هر سلول یکی را می‌گیرد."}}, {"term": "Mendel's law of independent assortment", "def": "Alleles of different genes are sorted into gametes independently of one another.", "cid": "monohybrid-crosses-mendel-7c-03", "simple": "Different genes are sorted into sex cells separately from each other.", "tr": {"ar": "تُوزَّع جينات مختلفة على الخلايا الجنسية بشكل مستقلّ بعضها عن بعض.", "tr": "Farklı genler, eşey hücrelerine birbirinden bağımsız olarak dağıtılır.", "vi": "Các gen khác nhau được phân vào tế bào sinh dục một cách độc lập với nhau.", "prs": "ژن‌های مختلف مستقل از یکدیگر به سلول‌های جنسی توزیع می‌شوند."}}, {"term": "Punnett square", "def": "A diagram used to predict the genotypes and phenotypes of offspring from a cross.", "cid": "monohybrid-crosses-mendel-7c-04", "simple": "A grid used to predict the offspring from a cross.", "tr": {"ar": "شبكة تُستخدَم للتنبّؤ بنسل التزاوج.", "tr": "Bir çaprazlamanın yavrularını tahmin etmek için kullanılan bir tablo.", "vi": "Một bảng dùng để dự đoán đời con từ một phép lai.", "prs": "جدولی که برای پیش‌بینی فرزندان یک آمیزش به کار می‌رود."}}, {"term": "Identify the cross and ratio shown", "def": "A heterozygous monohybrid cross (Aa × Aa): genotype ratio 1 AA : 2 Aa : 1 aa, giving a 3:1 dominant-to-recessive phenotype ratio.", "timg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\">\n<text x=\"60\" y=\"20\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#19251f\">A<\/text>\n<text x=\"130\" y=\"20\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#19251f\">a<\/text>\n<text x=\"18\" y=\"75\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#19251f\">A<\/text>\n<text x=\"18\" y=\"145\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"15\" font-weight=\"700\" fill=\"#19251f\">a<\/text>\n<g stroke=\"#1f6f54\" stroke-width=\"2\" fill=\"none\">\n<rect x=\"30\" y=\"40\" width=\"70\" height=\"70\"/><rect x=\"100\" y=\"40\" width=\"70\" height=\"70\"/>\n<rect x=\"30\" y=\"110\" width=\"70\" height=\"70\"/><rect x=\"100\" y=\"110\" width=\"70\" height=\"70\"/><\/g>\n<rect x=\"30\" y=\"40\" width=\"70\" height=\"70\" fill=\"#e4f0ea\"/><rect x=\"100\" y=\"40\" width=\"70\" height=\"70\" fill=\"#e4f0ea\"/>\n<rect x=\"30\" y=\"110\" width=\"70\" height=\"70\" fill=\"#e4f0ea\"/><rect x=\"100\" y=\"110\" width=\"70\" height=\"70\" fill=\"#f6ead9\"/>\n<g stroke=\"#1f6f54\" stroke-width=\"2\" fill=\"none\"><rect x=\"30\" y=\"40\" width=\"70\" height=\"70\"/><rect x=\"100\" y=\"40\" width=\"70\" height=\"70\"/><rect x=\"30\" y=\"110\" width=\"70\" height=\"70\"/><rect x=\"100\" y=\"110\" width=\"70\" height=\"70\"/><\/g>\n<text x=\"65\" y=\"82\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"18\" font-weight=\"600\" fill=\"#155a43\">AA<\/text>\n<text x=\"135\" y=\"82\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"18\" font-weight=\"600\" fill=\"#155a43\">Aa<\/text>\n<text x=\"65\" y=\"152\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"18\" font-weight=\"600\" fill=\"#155a43\">Aa<\/text>\n<text x=\"135\" y=\"152\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"18\" font-weight=\"600\" fill=\"#9a5d1d\">aa<\/text>\n<\/svg>", "cid": "monohybrid-crosses-mendel-7c-05", "simple": "Aa × Aa. Genotypes come out 1 AA : 2 Aa : 1 aa, and looks come out 3:1.", "tr": {"ar": "Aa × Aa. تظهر الطُّرز الوراثية 1 AA : 2 Aa : 1 aa، ويظهر المظهر 3:1.", "tr": "Aa × Aa. Genotipler 1 AA : 2 Aa : 1 aa, görünüm 3:1 çıkar.", "vi": "Aa × Aa. Kiểu gen ra 1 AA : 2 Aa : 1 aa, và kiểu hình ra 3:1.", "prs": "Aa × Aa. ژنوتیپ‌ها ۱ AA : ۲ Aa : ۱ aa و ظاهر ۳:۱ می‌شود."}}, {"term": "P, F1 and F2 generations", "def": "P = the parental generation; F1 = their offspring; F2 = the offspring of an F1 × F1 cross.", "cid": "monohybrid-crosses-mendel-7c-06", "simple": "P = parents. F1 = their children. F2 = the next generation.", "tr": {"ar": "P = الآباء. F1 = أبناؤهم. F2 = الجيل التالي.", "tr": "P = ebeveynler. F1 = onların çocukları. F2 = sonraki nesil.", "vi": "P = bố mẹ. F1 = con của họ. F2 = thế hệ tiếp theo.", "prs": "P = والدین. F1 = فرزندان آن‌ها. F2 = نسل بعدی."}}, {"term": "Phenotypic ratio of Aa × Aa", "def": "3:1 — three offspring showing the dominant trait to one showing the recessive trait.", "cid": "monohybrid-crosses-mendel-7c-07", "simple": "3:1 — three show the dominant trait, one shows the recessive.", "tr": {"ar": "3:1 — ثلاثة تظهر عليهم الصفة السائدة، وواحد تظهر عليه المتنحّية.", "tr": "3:1 — üçü baskın özelliği, biri çekinik özelliği gösterir.", "vi": "3:1 — ba cá thể biểu hiện tính trạng trội, một biểu hiện tính trạng lặn.", "prs": "۳:۱ — سه‌تا صفت غالب و یکی صفت مغلوب را نشان می‌دهند."}}, {"term": "Genotypic ratio of Aa × Aa", "def": "1:2:1 — one homozygous dominant : two heterozygous : one homozygous recessive.", "cid": "monohybrid-crosses-mendel-7c-08", "simple": "1:2:1 — one AA, two Aa, one aa.", "tr": {"ar": "1:2:1 — واحد AA، واثنان Aa، وواحد aa.", "tr": "1:2:1 — bir AA, iki Aa, bir aa.", "vi": "1:2:1 — một AA, hai Aa, một aa.", "prs": "۱:۲:۱ — یک AA، دو Aa، یک aa."}}, {"term": "Test cross", "def": "Crossing an individual of unknown genotype with a homozygous recessive individual to reveal the unknown genotype.", "cid": "monohybrid-crosses-mendel-7c-09", "simple": "Cross an unknown with a double-recessive to find out the unknown's alleles.", "tr": {"ar": "زاوج فردًا مجهول الطراز مع فرد متنحٍّ مزدوج لمعرفة أليلات المجهول.", "tr": "Bilinmeyen alelleri bulmak için bilinmeyen bireyi çift çekinikle çaprazla.", "vi": "Lai cá thể chưa biết với cá thể đồng hợp lặn để tìm ra alen của nó.", "prs": "برای یافتن اَلِل‌های فرد ناشناخته، او را با فرد مغلوب خالص آمیزش بده."}}, {"term": "Result of a test cross", "def": "If any recessive offspring appear, the unknown parent must be heterozygous.", "cid": "monohybrid-crosses-mendel-7c-10", "simple": "If any recessive offspring appear, the unknown parent had a hidden recessive allele (Aa).", "tr": {"ar": "إذا ظهر أيّ نسل متنحٍّ، فإن الأب المجهول كان يحمل أليلًا متنحّيًا خفيًّا (Aa).", "tr": "Çekinik yavru çıkarsa, bilinmeyen ebeveyn gizli bir çekinik alel (Aa) taşıyordu.", "vi": "Nếu xuất hiện con lặn, thì bố hoặc mẹ chưa biết đã mang một alen lặn ẩn (Aa).", "prs": "اگر هر فرزند مغلوبی ظاهر شود، والد ناشناخته یک اَلِل مغلوب پنهان (Aa) داشته است."}}], "chapter": "8A", "order": 1, "sid": "monohybrid-crosses-mendel-7c"}, {"name": "Dihybrid Crosses & Linkage (8B)", "cards": [{"term": "Dihybrid cross", "def": "A genetic cross that follows the inheritance of two different traits (two genes) at the same time.", "cid": "dihybrid-crosses-linkage-8b-01", "simple": "A cross that follows two traits (two genes) at once.", "parts": [{"p": "di", "m": "two"}, {"p": "hybrid", "m": "mix"}], "tr": {"ar": "تزاوج يتتبّع صفتين (جينين) في آنٍ واحد.", "tr": "Aynı anda iki özelliği (iki geni) izleyen bir çaprazlama.", "vi": "Phép lai theo dõi hai tính trạng (hai gen) cùng lúc.", "prs": "آمیزشی که هم‌زمان دو صفت (دو ژن) را دنبال می‌کند."}}, {"term": "Dihybrid phenotypic ratio", "def": "A cross between two double heterozygotes (AaBb × AaBb) gives a 9:3:3:1 phenotype ratio when the two genes assort independently.", "cid": "dihybrid-crosses-linkage-8b-02", "simple": "AaBb × AaBb gives 9:3:3:1 when the genes are sorted separately.", "tr": {"ar": "AaBb × AaBb يعطي 9:3:3:1 عندما تُوزَّع الجينات بشكل مستقلّ.", "tr": "Genler bağımsız dağıldığında AaBb × AaBb, 9:3:3:1 verir.", "vi": "AaBb × AaBb cho 9:3:3:1 khi các gen phân li độc lập.", "prs": "AaBb × AaBb وقتی ژن‌ها مستقل توزیع شوند ۹:۳:۳:۱ می‌دهد."}}, {"term": "Meaning of 9:3:3:1", "def": "9 showing both dominant traits : 3 dominant-and-recessive : 3 recessive-and-dominant : 1 showing both recessive traits.", "cid": "dihybrid-crosses-linkage-8b-03", "simple": "9 both dominant : 3 one way : 3 the other way : 1 both recessive.", "tr": {"ar": "9 بكلتا الصفتين السائدتين : 3 بإحداهما : 3 بالأخرى : 1 بكلتا المتنحّيتين.", "tr": "9 her iki baskın : 3 bir yönde : 3 diğer yönde : 1 her iki çekinik.", "vi": "9 cả hai trội : 3 một kiểu : 3 kiểu kia : 1 cả hai lặn.", "prs": "۹ هر دو غالب : ۳ یک‌طرف : ۳ طرف دیگر : ۱ هر دو مغلوب."}}, {"term": "Gamete types from AaBb", "def": "Four: AB, Ab, aB and ab.", "cid": "dihybrid-crosses-linkage-8b-04", "simple": "Four kinds: AB, Ab, aB, ab.", "tr": {"ar": "أربعة أنواع: AB، Ab، aB، ab.", "tr": "Dört tür: AB, Ab, aB, ab.", "vi": "Bốn loại: AB, Ab, aB, ab.", "prs": "چهار نوع: AB، Ab، aB، ab."}}, {"term": "Linked genes", "def": "Genes located close together on the same chromosome that tend to be inherited together.", "cid": "dihybrid-crosses-linkage-8b-05", "simple": "Genes close together on the same chromosome that travel together.", "tr": {"ar": "جينات متقاربة على الكروموسوم نفسه تنتقل معًا.", "tr": "Aynı kromozomda birbirine yakın olup birlikte aktarılan genler.", "vi": "Các gen nằm gần nhau trên cùng nhiễm sắc thể và di truyền cùng nhau.", "prs": "ژن‌هایی که روی یک کروموزوم نزدیک هم‌اند و با هم منتقل می‌شوند."}}, {"term": "Effect of linkage on ratios", "def": "Linked genes do not assort independently, so the expected 9:3:3:1 dihybrid ratio is altered.", "cid": "dihybrid-crosses-linkage-8b-06", "simple": "Linked genes don't sort separately, so the usual 9:3:3:1 changes.", "tr": {"ar": "الجينات المرتبطة لا تُوزَّع بشكل مستقلّ، فتتغيّر نسبة 9:3:3:1 المعتادة.", "tr": "Bağlı genler bağımsız dağılmaz, bu yüzden olağan 9:3:3:1 oranı değişir.", "vi": "Các gen liên kết không phân li độc lập, nên tỉ lệ 9:3:3:1 thường thay đổi.", "prs": "ژن‌های پیوسته مستقل توزیع نمی‌شوند، پس نسبت معمول ۹:۳:۳:۱ تغییر می‌کند."}}, {"term": "Crossing over and linked genes", "def": "Crossing over can separate linked genes, producing recombinant gametes.", "cid": "dihybrid-crosses-linkage-8b-07", "simple": "Swapping pieces can split linked genes apart, making new mixes.", "tr": {"ar": "تبادل القطع قد يفصل الجينات المرتبطة، فينشئ خلطات جديدة.", "tr": "Parça değişimi bağlı genleri ayırabilir ve yeni karışımlar oluşturabilir.", "vi": "Trao đổi đoạn có thể tách các gen liên kết, tạo ra tổ hợp mới.", "prs": "مبادلهٔ قطعه‌ها می‌تواند ژن‌های پیوسته را جدا کند و ترکیب‌های تازه بسازد."}}], "chapter": "8B", "order": 1, "sid": "dihybrid-crosses-linkage-8b"}, {"name": "Pedigree Analysis (8C)", "cards": [{"term": "Pedigree", "def": "A diagram showing how a trait is inherited through the generations of a family.", "cid": "pedigree-analysis-8c-01", "simple": "A family tree that shows how a trait passes down the generations.", "syll": "Ped·i·gree", "tr": {"ar": "شجرة عائلة تُظهر كيف تنتقل صفة عبر الأجيال.", "tr": "Bir özelliğin nesiller boyunca nasıl aktarıldığını gösteren bir soy ağacı.", "vi": "Một sơ đồ phả hệ cho thấy một tính trạng truyền qua các thế hệ như thế nào.", "prs": "یک شجره‌نامه که نشان می‌دهد یک صفت چگونه از نسلی به نسل دیگر منتقل می‌شود."}}, {"term": "Identify these pedigree symbols", "def": "Square = male, circle = female, fully shaded = affected, half-shaded = carrier; a horizontal line between two symbols is a mating line.", "timg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 230 130\">\n<rect x=\"20\" y=\"25\" width=\"26\" height=\"26\" fill=\"#fff\" stroke=\"#19251f\" stroke-width=\"2\"/>\n<text x=\"33\" y=\"68\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"10\" fill=\"#6c7d74\">male<\/text>\n<circle cx=\"85\" cy=\"38\" r=\"14\" fill=\"#fff\" stroke=\"#19251f\" stroke-width=\"2\"/>\n<text x=\"85\" y=\"68\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"10\" fill=\"#6c7d74\">female<\/text>\n<rect x=\"123\" y=\"25\" width=\"26\" height=\"26\" fill=\"#19251f\" stroke=\"#19251f\" stroke-width=\"2\"/>\n<text x=\"136\" y=\"68\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"10\" fill=\"#6c7d74\">affected<\/text>\n<circle cx=\"195\" cy=\"38\" r=\"14\" fill=\"#fff\" stroke=\"#19251f\" stroke-width=\"2\"/>\n<path d=\"M195 24 A14 14 0 0 1 195 52 Z\" fill=\"#19251f\"/>\n<text x=\"195\" y=\"68\" text-anchor=\"middle\" font-family=\"Inter,sans-serif\" font-size=\"10\" fill=\"#6c7d74\">carrier<\/text>\n<g stroke=\"#1f6f54\" stroke-width=\"2\"><line x1=\"46\" y1=\"95\" x2=\"78\" y2=\"95\"/><line x1=\"62\" y1=\"95\" x2=\"62\" y2=\"112\"/><\/g>\n<rect x=\"49\" y=\"82\" width=\"20\" height=\"20\" fill=\"#fff\" stroke=\"#19251f\" stroke-width=\"2\"/>\n<circle cx=\"95\" cy=\"92\" r=\"11\" fill=\"#fff\" stroke=\"#19251f\" stroke-width=\"2\"/>\n<text x=\"150\" y=\"98\" font-family=\"Inter,sans-serif\" font-size=\"10\" fill=\"#6c7d74\">— mating line<\/text>\n<\/svg>", "cid": "pedigree-analysis-8c-02", "simple": "Square = male, circle = female, filled = has the trait, half-filled = carrier. A line between two = a couple.", "tr": {"ar": "مربّع = ذكر، دائرة = أنثى، مملوء = مصاب، نصف مملوء = حامل. خط بين اثنين = زوجان.", "tr": "Kare = erkek, daire = kadın, dolu = etkilenmiş, yarı dolu = taşıyıcı. İki kişi arasındaki çizgi = bir çift.", "vi": "Hình vuông = nam, hình tròn = nữ, tô đầy = mắc bệnh, tô nửa = người mang. Đường nối hai người = một cặp.", "prs": "مربع = مرد، دایره = زن، پُر = مبتلا، نیمه‌پُر = ناقل. خط میان دو نفر = یک زوج."}}, {"term": "Mating and offspring lines", "def": "A horizontal line links two parents; vertical lines drop down to connect them to their children.", "cid": "pedigree-analysis-8c-03", "simple": "A line joins the parents; lines drop down to their children.", "tr": {"ar": "خط يصل بين الوالدين؛ وخطوط تنزل إلى أبنائهما.", "tr": "Bir çizgi ebeveynleri birleştirir; çizgiler aşağıya çocuklarına iner.", "vi": "Một đường nối hai bố mẹ; các đường kéo xuống nối với con của họ.", "prs": "خطی والدین را به هم وصل می‌کند؛ خط‌هایی به‌سمت پایین به فرزندان آن‌ها می‌رود."}}, {"term": "Autosomal recessive pattern", "def": "The trait can skip generations; two unaffected parents can have an affected child; males and females are affected equally.", "cid": "pedigree-analysis-8c-04", "simple": "Can skip generations. Two unaffected parents can have an affected child. Males and females equally.", "tr": {"ar": "قد تتخطّى أجيالًا. والدان غير مصابين قد يُنجبان طفلًا مصابًا. يصيب الذكور والإناث بالتساوي.", "tr": "Nesilleri atlayabilir. Etkilenmemiş iki ebeveynin etkilenmiş çocuğu olabilir. Erkek ve kadını eşit etkiler.", "vi": "Có thể bỏ qua các thế hệ. Hai bố mẹ không mắc bệnh vẫn có thể sinh con mắc bệnh. Ảnh hưởng nam và nữ như nhau.", "prs": "می‌تواند نسل‌ها را رد کند. دو والد سالم می‌توانند فرزند مبتلا داشته باشند. مردان و زنان را به‌یک‌اندازه درگیر می‌کند."}}, {"term": "Autosomal dominant pattern", "def": "The trait appears in every generation; an affected child always has at least one affected parent.", "cid": "pedigree-analysis-8c-05", "simple": "Shows in every generation. An affected child has at least one affected parent.", "tr": {"ar": "تظهر في كل جيل. الطفل المصاب له والد مصاب واحد على الأقلّ.", "tr": "Her nesilde görülür. Etkilenmiş bir çocuğun en az bir etkilenmiş ebeveyni vardır.", "vi": "Xuất hiện ở mọi thế hệ. Con mắc bệnh có ít nhất một bố hoặc mẹ mắc bệnh.", "prs": "در هر نسل دیده می‌شود. فرزند مبتلا دست‌کم یک والد مبتلا دارد."}}, {"term": "X-linked recessive pattern", "def": "More males are affected; the trait is often passed through carrier mothers; there is no male-to-male transmission.", "cid": "pedigree-analysis-8c-06", "simple": "More males affected. Often passed by carrier mothers. Never father to son.", "tr": {"ar": "إصابة الذكور أكثر. غالبًا تنتقل عبر أمّهات حاملات. لا تنتقل من الأب إلى الابن أبدًا.", "tr": "Daha çok erkek etkilenir. Çoğunlukla taşıyıcı annelerden geçer. Asla babadan oğula geçmez.", "vi": "Nam mắc nhiều hơn. Thường truyền qua người mẹ mang gen. Không bao giờ truyền từ cha sang con trai.", "prs": "مردان بیشتر مبتلا می‌شوند. اغلب از مادران ناقل منتقل می‌شود. هرگز از پدر به پسر نمی‌رسد."}}, {"term": "Consanguinity", "def": "Mating between close relatives, shown on a pedigree by a double horizontal line.", "cid": "pedigree-analysis-8c-07", "simple": "When close relatives have children together. Shown by a double line.", "parts": [{"p": "con", "m": "together"}, {"p": "sanguin", "m": "blood"}, {"p": "ity", "m": "state of"}], "syll": "Con·san·guin·i·ty", "tr": {"ar": "حين يُنجب أقارب من الدرجة القريبة أطفالًا معًا. يُرمز إليه بخط مزدوج.", "tr": "Yakın akrabaların birlikte çocuk sahibi olması. Çift çizgiyle gösterilir.", "vi": "Khi những người họ hàng gần có con với nhau. Được thể hiện bằng đường đôi.", "prs": "زمانی که خویشاوندان نزدیک با هم فرزند داشته باشند. با خط دوتایی نشان داده می‌شود."}}, {"term": "Using a pedigree for probability", "def": "Work out the parents' likely genotypes from the pattern, then use a Punnett square to predict the chance for future offspring.", "cid": "pedigree-analysis-8c-08", "simple": "Work out the parents' alleles from the pattern, then use a Punnett square to predict the next child.", "tr": {"ar": "استنتج أليلات الوالدين من النمط، ثم استخدم مربّع بانيت للتنبّؤ بالطفل التالي.", "tr": "Kalıptan ebeveynlerin alellerini çıkar, sonra sonraki çocuğu tahmin etmek için Punnett tablosu kullan.", "vi": "Suy ra alen của bố mẹ từ sơ đồ, rồi dùng bảng Punnett để dự đoán đứa con tiếp theo.", "prs": "از الگو اَلِل‌های والدین را به‌دست آور، سپس با جدول پانت فرزند بعدی را پیش‌بینی کن."}}], "chapter": "8C", "order": 1, "sid": "pedigree-analysis-8c"}, {"name": "Independent Assortment & Crossing Over (9A)", "cards": [{"term": "Independent assortment", "def": "The random orientation and separation of each homologous pair at metaphase/anaphase I, producing varied gamete combinations.", "cid": "independent-assortment-cross-01", "simple": "Chromosome pairs line up in random order in meiosis, so sex cells get mixed combinations.", "tr": {"ar": "تصطفّ أزواج الكروموسومات بترتيب عشوائي في الانقسام المنصّف، فتحصل الخلايا الجنسية على توليفات مختلطة.", "tr": "Mayozda kromozom çiftleri rastgele sırayla dizilir, böylece eşey hücreleri karışık kombinasyonlar alır.", "vi": "Trong giảm phân, các cặp nhiễm sắc thể xếp theo thứ tự ngẫu nhiên, nên tế bào sinh dục nhận các tổ hợp pha trộn.", "prs": "در میوز جفت‌های کروموزوم به ترتیب تصادفی ردیف می‌شوند، پس سلول‌های جنسی ترکیب‌های گوناگون می‌گیرند."}}, {"term": "Chromosomal basis of independent assortment", "def": "Each homologous pair lines up independently of the others at the cell equator during metaphase I.", "cid": "independent-assortment-cross-02", "simple": "Each pair lines up on its own, separate from the other pairs.", "tr": {"ar": "يصطفّ كل زوج بمفرده، مستقلًّا عن بقية الأزواج.", "tr": "Her çift, diğer çiftlerden bağımsız olarak kendi başına dizilir.", "vi": "Mỗi cặp xếp hàng riêng, độc lập với các cặp khác.", "prs": "هر جفت به‌تنهایی و مستقل از جفت‌های دیگر ردیف می‌شود."}}, {"term": "Combinations from independent assortment in humans", "def": "2^23 (over 8 million) possible chromosome combinations per gamete, from independent assortment alone.", "cid": "independent-assortment-cross-03", "simple": "Over 8 million (2 to the power 23) possible mixes per sex cell.", "tr": {"ar": "أكثر من 8 ملايين (2 أس 23) توليفة ممكنة لكل خلية جنسية.", "tr": "Her eşey hücresi için 8 milyondan fazla (2 üzeri 23) olası karışım.", "vi": "Hơn 8 triệu (2 mũ 23) tổ hợp có thể có cho mỗi tế bào sinh dục.", "prs": "بیش از ۸ میلیون (۲ به توان ۲۳) ترکیب ممکن برای هر سلول جنسی."}}, {"term": "Crossing over", "def": "The exchange of segments between homologous chromosomes during prophase I of meiosis.", "cid": "independent-assortment-cross-04", "simple": "Matching chromosomes swap pieces, making new mixes of genes.", "tr": {"ar": "تتبادل الكروموسومات المتماثلة القطع، فتنشأ خلطات جديدة من الجينات.", "tr": "Eşleşen kromozomlar parça değiş tokuş ederek yeni gen karışımları oluşturur.", "vi": "Các nhiễm sắc thể tương đồng trao đổi đoạn, tạo ra tổ hợp gen mới.", "prs": "کروموزوم‌های همتا قطعه‌ها را مبادله می‌کنند و ترکیب‌های ژنی تازه می‌سازند."}}, {"term": "Chiasma", "def": "The point at which homologous chromosomes physically cross and exchange genetic material.", "cid": "independent-assortment-cross-05", "simple": "The spot where two matching chromosomes cross over and swap pieces.", "parts": [{"p": "chiasma", "m": "a cross (X) shape"}], "syll": "Chi·as·ma", "tr": {"ar": "النقطة التي يتقاطع عندها كروموسومان متماثلان ويتبادلان القطع.", "tr": "İki eşleşen kromozomun çaprazlaşıp parça değiştirdiği nokta.", "vi": "Điểm nơi hai nhiễm sắc thể tương đồng bắt chéo và trao đổi đoạn.", "prs": "نقطه‌ای که دو کروموزوم همتا از روی هم می‌گذرند و قطعه‌ها را مبادله می‌کنند."}}, {"term": "Genetic recombination", "def": "New combinations of alleles produced by crossing over and independent assortment.", "cid": "independent-assortment-cross-06", "simple": "New mixes of alleles made by crossing over and random sorting.", "parts": [{"p": "re", "m": "again"}, {"p": "combination", "m": "mixing"}], "tr": {"ar": "خلطات جديدة من الأليلات تنشأ بالعبور والتوزيع العشوائي.", "tr": "Krossing over ve rastgele dağılımla oluşan yeni alel karışımları.", "vi": "Các tổ hợp alen mới được tạo ra do trao đổi chéo và phân li ngẫu nhiên.", "prs": "ترکیب‌های تازهٔ اَلِل‌ها که با کراسینگ‌اور و توزیع تصادفی ساخته می‌شوند."}}, {"term": "Recombination frequency", "def": "The proportion of offspring that are recombinant; used to estimate the distance between two genes on a chromosome.", "cid": "independent-assortment-cross-07", "simple": "How often offspring have a new mix. Used to measure how far apart two genes are.", "tr": {"ar": "مدى تكرار حصول النسل على خلطة جديدة. يُستخدَم لقياس المسافة بين جينين.", "tr": "Yavruların ne sıklıkla yeni karışım taşıdığı. İki genin ne kadar uzak olduğunu ölçmek için kullanılır.", "vi": "Tần suất đời con có tổ hợp mới. Dùng để đo hai gen cách nhau bao xa.", "prs": "اینکه فرزندان چند بار ترکیب تازه دارند. برای سنجش فاصلهٔ دو ژن به کار می‌رود."}}, {"term": "Recombination frequency and gene distance", "def": "Genes that are further apart on a chromosome have a higher recombination frequency.", "cid": "independent-assortment-cross-08", "simple": "Genes further apart swap more often, so they have a higher recombination frequency.", "tr": {"ar": "الجينات الأبعد تتبادل أكثر، فيكون تردّد إعادة التركيب فيها أعلى.", "tr": "Daha uzaktaki genler daha sık yer değiştirir, bu yüzden rekombinasyon sıklıkları daha yüksektir.", "vi": "Các gen càng xa nhau càng trao đổi nhiều, nên tần suất tái tổ hợp cao hơn.", "prs": "ژن‌هایی که دورتر هستند بیشتر جابه‌جا می‌شوند، پس فراوانی نوترکیبی بالاتری دارند."}}], "chapter": "9A", "order": 1, "sid": "independent-assortment-cross"}, {"name": "Genetic Variation & Sexual Reproduction (9A)", "cards": [{"term": "Three sources of genetic variation", "def": "Crossing over, independent assortment, and random fertilisation.", "cid": "genetic-variation-sexual-rep-01", "simple": "Crossing over, random sorting of chromosomes, and random fertilisation.", "tr": {"ar": "العبور، والتوزيع العشوائي للكروموسومات، والإخصاب العشوائي.", "tr": "Krossing over, kromozomların rastgele dağılımı ve rastgele döllenme.", "vi": "Trao đổi chéo, phân li ngẫu nhiên của nhiễm sắc thể, và thụ tinh ngẫu nhiên.", "prs": "کراسینگ‌اور، توزیع تصادفی کروموزوم‌ها و لقاح تصادفی."}}, {"term": "Random fertilisation", "def": "Any sperm can fertilise any egg, hugely increasing the number of possible genetic combinations in offspring.", "cid": "genetic-variation-sexual-rep-02", "simple": "Any sperm can meet any egg, adding even more possible mixes.", "tr": {"ar": "أيّ حيوان منوي قد يلتقي بأيّ بويضة، مما يزيد التوليفات الممكنة.", "tr": "Herhangi bir sperm herhangi bir yumurtayla buluşabilir, bu da olası karışımları daha da artırır.", "vi": "Bất kỳ tinh trùng nào cũng có thể gặp bất kỳ trứng nào, làm tăng thêm số tổ hợp có thể có.", "prs": "هر اسپرمی می‌تواند با هر تخمکی روبه‌رو شود و ترکیب‌های ممکن را بازهم بیشتر می‌کند."}}, {"term": "Sexual reproduction", "def": "Reproduction involving two parents and the fusion of gametes, producing genetically varied offspring.", "cid": "genetic-variation-sexual-rep-03", "simple": "Two parents and their sex cells join. Offspring are all different.", "tr": {"ar": "والدان وتتّحد خلاياهما الجنسية. والنسل كلّه مختلف.", "tr": "İki ebeveyn ve onların eşey hücreleri birleşir. Yavruların hepsi farklıdır.", "vi": "Hai bố mẹ và tế bào sinh dục của họ kết hợp. Đời con đều khác nhau.", "prs": "دو والد و سلول‌های جنسی‌شان به هم می‌پیوندند. فرزندان همه متفاوت‌اند."}}, {"term": "Asexual reproduction", "def": "Reproduction from a single parent that produces genetically identical offspring (clones).", "cid": "genetic-variation-sexual-rep-04", "simple": "One parent makes offspring that are exact copies (clones).", "parts": [{"p": "a", "m": "without"}, {"p": "sexual", "m": "sex / two parents"}], "tr": {"ar": "والد واحد يُنتج نسلًا نسخًا طبق الأصل (مستنسخات).", "tr": "Tek bir ebeveyn, birebir kopya (klon) olan yavrular yapar.", "vi": "Một bố hoặc mẹ tạo ra đời con là bản sao y hệt (dòng vô tính).", "prs": "یک والد فرزندانی می‌سازد که نسخه‌های دقیق (همتا/کلون) هستند."}}, {"term": "Advantage of sexual reproduction", "def": "Genetic variation helps a population adapt to changing environments.", "cid": "genetic-variation-sexual-rep-05", "simple": "The variety helps the group cope with change.", "tr": {"ar": "التنوّع يساعد المجموعة على مواجهة التغيّر.", "tr": "Çeşitlilik, grubun değişimle başa çıkmasına yardımcı olur.", "vi": "Sự đa dạng giúp quần thể ứng phó với thay đổi.", "prs": "تنوع به گروه کمک می‌کند با تغییر کنار بیاید."}}, {"term": "Disadvantage of sexual reproduction", "def": "It is slower, needs a mate, and each parent passes on only half of its genes.", "cid": "genetic-variation-sexual-rep-06", "simple": "It is slower, needs a partner, and each parent passes on only half its genes.", "tr": {"ar": "أبطأ، ويحتاج إلى شريك، وكل والد ينقل نصف جيناته فقط.", "tr": "Daha yavaştır, bir eş gerektirir ve her ebeveyn genlerinin yalnızca yarısını aktarır.", "vi": "Chậm hơn, cần bạn tình, và mỗi bố hoặc mẹ chỉ truyền một nửa số gen.", "prs": "کندتر است، به یک جفت نیاز دارد و هر والد فقط نیمی از ژن‌هایش را منتقل می‌کند."}}, {"term": "Advantage and disadvantage of asexual reproduction", "def": "Fast and needs no mate, but produces little variation, leaving the population vulnerable to environmental change.", "cid": "genetic-variation-sexual-rep-07", "simple": "Fast and needs no partner, but little variety, so the group is at risk if things change.", "tr": {"ar": "سريع ولا يحتاج إلى شريك، لكن تنوّعه قليل، فتكون المجموعة في خطر إذا تغيّرت الظروف.", "tr": "Hızlıdır ve eş gerektirmez, ama çeşitlilik azdır; bu yüzden koşullar değişirse grup risk altındadır.", "vi": "Nhanh và không cần bạn tình, nhưng ít đa dạng, nên quần thể gặp rủi ro nếu hoàn cảnh thay đổi.", "prs": "سریع است و به جفت نیاز ندارد، اما تنوع کمی دارد، پس اگر شرایط تغییر کند گروه در خطر است."}}], "chapter": "9A", "order": 2, "sid": "genetic-variation-sexual-rep"}, {"name": "Cloning (9B)", "cards": [{"term": "Clone", "def": "A genetically identical copy of an organism, cell, or gene.", "cid": "cloning-9b-01", "simple": "An exact genetic copy of a living thing, cell, or gene.", "tr": {"ar": "نسخة وراثية طبق الأصل من كائن حيّ أو خلية أو جين.", "tr": "Bir canlının, hücrenin veya genin birebir genetik kopyası.", "vi": "Một bản sao di truyền y hệt của một sinh vật, tế bào hoặc gen.", "prs": "نسخهٔ ژنتیکی دقیق از یک موجود زنده، سلول یا ژن."}}, {"term": "Reproductive cloning", "def": "Producing a whole organism that is genetically identical to another (e.g. Dolly the sheep).", "cid": "cloning-9b-02", "simple": "Making a whole new organism that is an exact copy of another (like Dolly the sheep).", "tr": {"ar": "إنتاج كائن جديد كامل يكون نسخة طبق الأصل من آخر (مثل النعجة دوللي).", "tr": "Bir başkasının birebir kopyası olan yepyeni bir organizma üretmek (Koyun Dolly gibi).", "vi": "Tạo ra một sinh vật mới hoàn chỉnh là bản sao y hệt của sinh vật khác (như cừu Dolly).", "prs": "ساختن یک موجود کامل تازه که نسخهٔ دقیق موجودی دیگر است (مانند گوسفند دالی)."}}, {"term": "Somatic cell nuclear transfer (SCNT)", "def": "A nucleus from a body (somatic) cell is placed into an egg cell whose nucleus has been removed, creating a clone.", "cid": "cloning-9b-03", "simple": "Put the nucleus from a body cell into an empty egg to grow a clone.", "tr": {"ar": "وضع نواة من خلية جسدية في بويضة مُفرَّغة لإنماء مستنسخ.", "tr": "Bir klon büyütmek için vücut hücresinin çekirdeğini boş bir yumurtaya koymak.", "vi": "Đưa nhân từ một tế bào cơ thể vào một trứng rỗng để nuôi thành dòng vô tính.", "prs": "گذاشتن هستهٔ یک سلول بدنی در یک تخمک خالی برای پروراندن یک کلون."}}, {"term": "Therapeutic cloning", "def": "Producing stem cells or tissues for medical treatment, rather than a whole organism.", "cid": "cloning-9b-04", "simple": "Making stem cells or tissue for medical treatment, not a whole organism.", "tr": {"ar": "إنتاج خلايا جذعية أو أنسجة للعلاج الطبّي، لا كائن كامل.", "tr": "Tüm bir organizma değil, tıbbi tedavi için kök hücre veya doku üretmek.", "vi": "Tạo tế bào gốc hoặc mô để điều trị y tế, không phải cả một sinh vật.", "prs": "ساختن سلول‌های بنیادی یا بافت برای درمان پزشکی، نه یک موجود کامل."}}, {"term": "Natural cloning examples", "def": "Identical twins, bacteria dividing by binary fission, and plants spreading by runners or cuttings.", "cid": "cloning-9b-05", "simple": "Identical twins, bacteria splitting in two, and plants growing from runners or cuttings.", "tr": {"ar": "التوائم المتطابقة، وانقسام البكتيريا إلى اثنتين، ونمو النباتات من المدّادات أو العُقَل.", "tr": "Tek yumurta ikizleri, ikiye bölünen bakteriler ve sürgün ya da çeliklerden büyüyen bitkiler.", "vi": "Sinh đôi cùng trứng, vi khuẩn phân đôi, và cây mọc từ thân bò hoặc giâm cành.", "prs": "دوقلوهای همسان، تقسیم باکتری به دو، و رویش گیاهان از ساقه‌های خزنده یا قلمه."}}, {"term": "Issues with cloning", "def": "Ethical concerns, low success rates, health problems and premature ageing in clones, and reduced genetic diversity.", "cid": "cloning-9b-06", "simple": "Ethical worries, often fails, clones can be unhealthy, and less genetic variety.", "tr": {"ar": "مخاوف أخلاقية، وكثرة الإخفاق، واحتمال اعتلال صحّة المستنسخات، وقلّة التنوّع الوراثي.", "tr": "Etik kaygılar, sık başarısızlık, klonların sağlıksız olabilmesi ve daha az genetik çeşitlilik.", "vi": "Lo ngại đạo đức, thường thất bại, các bản sao có thể không khỏe mạnh, và ít đa dạng di truyền.", "prs": "نگرانی‌های اخلاقی، شکست مکرر، احتمال ناسالم‌بودن کلون‌ها، و تنوع ژنتیکی کمتر."}}], "chapter": "9B", "order": 1, "sid": "cloning-9b"}], "chapters": [{"code": "DNA", "title": "DNA structure"}, {"code": "7A", "title": "Chromosomes, genes & alleles"}, {"code": "7B", "title": "Meiosis & gametes"}, {"code": "7C", "title": "Variations in inheritance"}, {"code": "7D", "title": "Nature, nurture & epigenetics"}, {"code": "8A", "title": "Monohybrid crosses"}, {"code": "8B", "title": "Dihybrid crosses & linkage"}, {"code": "8C", "title": "Pedigree analysis"}, {"code": "9A", "title": "Variation & assortment"}, {"code": "9B", "title": "Cloning"}]}</script>
+
+<script>
+/* =========================================================================
+   Recall — a single-file, offline-first study-card app (Leitner SRS)
+   Storage: IndexedDB (sets, images, progress) — local-first.
+   Sync:    anonymous code. Firebase-ready (paste config below) with a
+            zero-backend copy/paste fallback that works today.
+   ========================================================================= */
+
+/* ----- 1. FIREBASE CONFIG (paste yours here to switch on live sync) ----- */
+const FIREBASE_CONFIG = null;
+/*  Example — replace null with your project's web config object:
+const FIREBASE_CONFIG = {
+  apiKey:"...", authDomain:"...", projectId:"...",
+  storageBucket:"...", messagingSenderId:"...", appId:"..."
+};
+   When this is filled in, the sync code becomes true cross-device sync.
+   While it's null, the app uses copy/paste transfer (still anonymous).      */
+
+/* ----- 2. Leitner schedule: days until a card is due again, per box ----- */
+const BOX_DAYS = [0, 1, 3, 7, 16];          // box 1..5 → due in N days
+const BOX_LABELS = ['New','Seen','Getting it','Strong','Mastered'];
+const SESSION_CAP = 24;                       // max cards per learn session
+const DAY = 86400000;
+
+/* ----- 3. tiny IndexedDB wrapper ----- */
+const DB = (()=>{ let db;
+  function open(){ return new Promise((res,rej)=>{
+    const r = indexedDB.open('recall-db',1);
+    r.onupgradeneeded = e=>{ const d=e.target.result;
+      if(!d.objectStoreNames.contains('sets')) d.createObjectStore('sets',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('images')) d.createObjectStore('images');
+      if(!d.objectStoreNames.contains('progress')) d.createObjectStore('progress',{keyPath:'setId'});
+      if(!d.objectStoreNames.contains('meta')) d.createObjectStore('meta');
+    };
+    r.onsuccess=()=>{db=r.result;res(db)}; r.onerror=()=>rej(r.error);
+  });}
+  function tx(store,mode){ return db.transaction(store,mode).objectStore(store); }
+  function p(req){ return new Promise((res,rej)=>{req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error)}); }
+  return {
+    init:open,
+    getAll:s=>p(tx(s,'readonly').getAll()),
+    get:(s,k)=>p(tx(s,'readonly').get(k)),
+    put:(s,v,k)=>p(tx(s,'readwrite').put(v,k)),
+    del:(s,k)=>p(tx(s,'readwrite').delete(k)),
+  };
+})();
+
+/* ----- 4. state ----- */
+let SETS=[], PROGRESS={}, META={}, current=null, SEED=null;
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const uid=()=>Math.random().toString(36).slice(2,9);
+const today=()=> Math.floor(Date.now()/DAY);   // integer day index
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* image helpers: stored as Blob in IndexedDB, shown via object URL (cached) */
+const urlCache={};
+async function imgURL(key){ if(!key) return null; if(urlCache[key]) return urlCache[key];
+  const blob=await DB.get('images',key); if(!blob) return null;
+  return urlCache[key]=URL.createObjectURL(blob); }
+function fileToBlob(file){ return file; }   // File is already a Blob
+
+/* ----- 5. progress model ----- */
+function setProgress(setId){ if(!PROGRESS[setId]) PROGRESS[setId]={setId,cards:{}}; return PROGRESS[setId]; }
+function cardState(setId,cardId){ const p=setProgress(setId); if(!p.cards[cardId]) p.cards[cardId]={box:1,due:today()}; return p.cards[cardId]; }
+async function saveProgress(setId){ await DB.put('progress', PROGRESS[setId]); queueSync(); }
+function grade(setId,cardId,correct){ const st=cardState(setId,cardId);
+  st.box = correct ? Math.min(5, st.box+1) : 1;
+  st.due = today() + BOX_DAYS[st.box-1];
+}
+function dueCards(set){ const t=today(); return set.cards.filter(c=>{ const st=cardState(set.id,c.id); return st.due<=t; }); }
+function boxCounts(set){ const c=[0,0,0,0,0]; set.cards.forEach(card=>{ c[cardState(set.id,card.id).box-1]++; }); return c; }
+/* mastery = average progress across the 5 stages (all New = 0%, all Mastered = 100%) */
+function masteryPct(set){ if(!set.cards.length) return 0; let s=0; set.cards.forEach(c=>{ s+=(cardState(set.id,c.id).box-1)/4; }); return Math.round(s/set.cards.length*100); }
+function scopeBoxCounts(scope){ const c=[0,0,0,0,0]; scope.sets.forEach(s=>s.cards.forEach(card=>{ c[cardState(s.id,card.id).box-1]++; })); return c; }
+function scopeTotal(scope){ return scope.sets.reduce((n,s)=>n+s.cards.length,0); }
+function scopeMastery(scope){ const t=scopeTotal(scope); if(!t) return 0; let s=0; scope.sets.forEach(set=>set.cards.forEach(c=>{ s+=(cardState(set.id,c.id).box-1)/4; })); return Math.round(s/t*100); }
+
+/* ----- 5b. daily rhythm: a gentle, forgiving streak --------------------------
+   Rewards opening the app, never punishes staying away. No notifications.
+   A single missed day never breaks a run (one rest day is bridged, and shown
+   on the strip so the count stays honest). The weekly strip is the calm anchor
+   and starts fresh every Monday. The default goal is small so a low-energy day
+   still counts, and meeting it gives explicit permission to stop. All local. */
+const DEFAULT_GOAL=10, GOAL_STEPS=[5,10,15,20], MILESTONES=[3,7,14,30,50,100];
+// local-midnight day index, so the day doesn't roll over mid-morning in UTC+10/+11
+function localDay(){ const n=new Date(); return Math.floor((n.getTime()-n.getTimezoneOffset()*60000)/DAY); }
+function goalPerDay(){ return META.goalPerDay||DEFAULT_GOAL; }
+function activeDays(){ return META.activeDays||(META.activeDays=[]); }
+function isActive(d){ return activeDays().includes(d); }
+function computeStreak(){            // consecutive active days ending today/yesterday, bridging one rest day
+  const set=new Set(activeDays()), t=localDay();
+  let d = set.has(t) ? t : (set.has(t-1) ? t-1 : null);
+  if(d===null) return 0;
+  let cur=1;
+  while(true){ if(set.has(d-1)){ d-=1; cur++; } else if(set.has(d-2)){ d-=2; cur++; } else break; }
+  return cur;
+}
+function isRestBridged(d){ const s=new Set(activeDays()); return !s.has(d)&&s.has(d-1)&&s.has(d+1); }
+
+async function recordReview(){       // called once per active-recall card (Learn + Test)
+  const t=localDay(); let dp=META.dayProgress;
+  if(!dp || dp.d!==t) dp={d:t,n:0};
+  dp.n++; META.dayProgress=dp; await DB.put('meta',dp,'dayProgress');
+  if(dp.n===goalPerDay() && !isActive(t)) await markDayActive(t);
+  else renderStreak();
+}
+async function markDayActive(t){
+  if(!isActive(t)){ activeDays().push(t); activeDays().sort((a,b)=>a-b);
+    if(activeDays().length>120) META.activeDays=activeDays().slice(-120);
+    await DB.put('meta',META.activeDays,'activeDays'); queueSync(); }
+  const run=computeStreak(), seen=META.streakSeen||(META.streakSeen=[]);
+  if(MILESTONES.includes(run) && !seen.includes(run)){
+    seen.push(run); await DB.put('meta',META.streakSeen,'streakSeen');
+    toast(`${run}-day run — lovely consistency 🌿`);
+  } else toast('Goal reached for today — nice work');
+  renderStreak();
+}
+function leafSvg(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 21c0-7 5-13 14-14 0 9-5 14-14 14zm0 0c2-4 5-6 9-7" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>'; }
+function tickSvg(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>'; }
+
+function renderStreak(){
+  const el=$('#streak'); if(!el) return;
+  const t=localDay(), run=computeStreak(), goal=goalPerDay(), doneToday=isActive(t);
+  const dp=(META.dayProgress&&META.dayProgress.d===t)?META.dayProgress.n:0;
+  const dow=(new Date(t*DAY).getUTCDay()+6)%7, weekStart=t-dow;   // Monday-first
+  const labels=['M','T','W','T','F','S','S']; let strip='';
+  for(let i=0;i<7;i++){ const d=weekStart+i, cls=[];
+    if(d===t)cls.push('today'); if(d>t)cls.push('future');
+    if(isActive(d))cls.push('studied'); else if(isRestBridged(d))cls.push('rest');
+    const inner=isActive(d)?tickSvg():(isRestBridged(d)?'·':'');
+    strip+=`<div class="wd ${cls.join(' ')}"><span class="dl">${labels[i]}</span><span class="dot">${inner}</span></div>`;
+  }
+  const head = run>0 ? `${run}-day run` : 'New run starts today 🌱';
+  const sub = doneToday ? 'Done for today — more is welcome, but you’ve earned a rest.'
+            : run>0     ? `${dp} of ${goal} cards today · keep it gentle`
+            :             `${dp} of ${goal} cards today to begin`;
+  el.innerHTML=`
+    <div class="streak-top">
+      <div class="streak-flame ${(run>0||doneToday)?'':'rest'}">${leafSvg()}</div>
+      <div class="streak-main">
+        <div class="streak-head">${head}</div>
+        <div class="streak-sub">${sub}</div>
+      </div>
+      <button class="streak-goal ${doneToday?'done':''}" id="goal-cycle" aria-label="Change daily goal">${doneToday?'✓ today':`Goal ${goal}`}</button>
+    </div>
+    <div class="week">${strip}</div>`;
+  $('#goal-cycle').onclick=async()=>{
+    const i=GOAL_STEPS.indexOf(goalPerDay()); META.goalPerDay=GOAL_STEPS[(i+1)%GOAL_STEPS.length];
+    await DB.put('meta',META.goalPerDay,'goalPerDay');
+    const tt=localDay(), n=(META.dayProgress&&META.dayProgress.d===tt)?META.dayProgress.n:0;
+    if(n>=goalPerDay() && !isActive(tt)) await markDayActive(tt); else renderStreak();
+  };
+}
+
+let openChapters=null;     // Set of expanded chapter codes (null = not yet initialised)
+let studyScope=null;       // the set or chapter currently shown on the Study tab
+function setStudyScope(scope){ studyScope=scope; if(scope.sets[0]) current=scope.sets[0]; switchTab('study'); }
+
+/* =========================================================================
+   RENDER: sets list — grouped into chapter dropdowns
+   ========================================================================= */
+async function renderSets(){
+  renderStreak();
+  const list=$('#set-list');
+  if(!SETS.length){ list.innerHTML=emptyState('sets'); bindEmpty(); manageMode=false; updateManageBtn(); return; }
+  list.innerHTML='';
+  const manage=manageMode;
+
+  if(manage){ const note=document.createElement('div'); note.className='manage-note';
+    note.innerHTML=`Manage mode — remove sets or whole chapters. <b>Tap Manage again to finish.</b>`; list.appendChild(note); }
+
+  const chapters=(SEED&&SEED.chapters)?SEED.chapters:[];
+  const groups=[];
+  chapters.forEach(ch=>{ const sets=SETS.filter(s=>s.chapter===ch.code).sort((a,b)=>(a.order||0)-(b.order||0)); if(sets.length) groups.push({code:ch.code,title:ch.title,sets}); });
+  const others=SETS.filter(s=>!s.chapter || !chapters.some(c=>c.code===s.chapter));
+  if(others.length) groups.push({code:'__other',title:'Your own sets',sets:others});
+
+  if(openChapters===null){ openChapters=new Set();
+    const firstDue=groups.find(g=>g.sets.some(s=>dueCards(s).length));
+    if(firstDue) openChapters.add(firstDue.code); else if(groups[0]) openChapters.add(groups[0].code);
+  }
+
+  for(const g of groups){
+    const total=g.sets.reduce((n,s)=>n+s.cards.length,0);
+    const due=g.sets.reduce((n,s)=>n+dueCards(s).length,0);
+    const pct=scopeMastery({sets:g.sets});
+    const open=manage?true:openChapters.has(g.code);
+    const multi=g.sets.length>1;
+    const sec=document.createElement('div'); sec.className='chapter';
+    sec.innerHTML=`
+      <button class="chapter-head ${open?'open':''} ${manage?'managing':''}" data-ch="${g.code}">
+        <span class="ch-badge ${g.code==='__other'?'alt':''}">${g.code==='__other'?'★':esc(g.code)}</span>
+        <div class="ch-meta"><div class="ch-title">${esc(g.title)}</div>
+          <div class="ch-sub">${g.sets.length} set${g.sets.length!==1?'s':''} · <span class="ch-pct">${pct}% learned</span>${due?` · <b>${due} to review</b>`:''}</div></div>
+        ${manage
+          ? `<span class="ch-del" role="button" data-delch="${esc(g.code)}" aria-label="Delete chapter">${trashSvg()}</span>`
+          : `<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>`}
+      </button>
+      <div class="chapter-body" ${open?'':'hidden'}>
+        ${(multi&&!manage)?`<button class="ch-studyall" data-studych="${esc(g.code)}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+          <span>Study all of ${esc(g.code)} together</span><em>${total} cards</em></button>`:''}
+        <div class="ch-sets"></div>
+      </div>`;
+    list.appendChild(sec);
+    const holder=sec.querySelector('.ch-sets');
+    g.sets.forEach(set=>holder.appendChild(setCardEl(set,manage)));
+  }
+
+  if(manage && SEED){ const footer=document.createElement('button'); footer.className='btn btn-ghost btn-block'; footer.style.marginTop='6px';
+    footer.textContent='Restore the bundled biology sets'; footer.onclick=restoreBundled; list.appendChild(footer); }
+
+  list.querySelectorAll('.chapter-head').forEach(h=>h.onclick=()=>{
+    if(manage) return;
+    const code=h.dataset.ch;
+    if(openChapters.has(code)) openChapters.delete(code); else openChapters.add(code);
+    renderSets();
+  });
+  list.querySelectorAll('[data-studych]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); setStudyScope(scopeChapter(b.dataset.studych)); });
+  list.querySelectorAll('[data-delch]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); deleteChapterFromList(b.dataset.delch); });
+}
+
+function setCardEl(set,manage){
+  const total=set.cards.length, due=dueCards(set).length, pct=masteryPct(set);
+  const el=document.createElement('button'); el.className='setcard'+(manage?' managing':'');
+  el.innerHTML=`
+    ${manage?`<span class="set-del" role="button" aria-label="Delete set">${trashSvg()}</span>`:''}
+    <h3>${esc(set.name)}</h3>
+    <div class="meta"><span>${total} card${total!==1?'s':''}</span><span class="pct">${pct}% learned</span></div>
+    <div class="prog"><i style="width:${pct}%"></i></div>
+    <div class="${due?'due-pill':'due-pill clear'}">
+      ${due? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg> ${due} ready to review`
+           : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 13l4 4L19 7"/></svg> all caught up`}
+    </div>`;
+  if(manage){ const d=el.querySelector('.set-del'); d.onclick=e=>{ e.stopPropagation(); deleteSetFromList(set.id); }; el.onclick=e=>{ e.preventDefault(); }; }
+  else el.onclick=()=>setStudyScope(scopeOf(set));
+  return el;
+}
+
+function emptyState(kind){
+  return `<div class="empty">
+    <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M7 20h10"/></svg>
+    <h3>No sets yet</h3>
+    <p>Make your first set, or paste a list of terms straight from a spreadsheet.</p>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn btn-primary" id="es-new">New set</button>
+      <button class="btn btn-ghost" id="es-import">Paste a list</button>
+    </div>
+    ${SEED?`<button class="btn btn-soft" id="es-restore" style="margin-top:12px">Restore the bundled biology sets</button>`:''}
+  </div>`;
+}
+function bindEmpty(){ const a=$('#es-new'),b=$('#es-import'),r=$('#es-restore'); if(a)a.onclick=()=>openEditor(); if(b)b.onclick=openImport; if(r)r.onclick=restoreBundled; }
+
+/* =========================================================================
+   RENDER: study screen (mode picker + leitner board)
+   ========================================================================= */
+function gotoStudy(){ switchTab('study'); }
+async function renderStudy(){
+  const body=$('#study-body');
+  if(!studyScope && SETS.length) studyScope=scopeOf(current||SETS[0]);
+  if(!studyScope || !studyScope.sets.length){ body.innerHTML=`<div class="empty"><svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 4l8 4-8 4-8-4 8-4z"/><path d="M4 12l8 4 8-4"/></svg><h3>Nothing to study yet</h3><p>Pick a set on the Sets tab to start.</p></div>`; return; }
+  const scope=studyScope, single=scope.sets.length===1;
+  const due=scope.sets.reduce((n,s)=>n+dueCards(s).length,0);
+  const counts=scopeBoxCounts(scope); const maxc=Math.max(...counts,1);
+  const total=scopeTotal(scope);
+  const flagged=poolOf(scope).filter(c=>c.starred).length;
+  body.innerHTML=`
+    <div class="study-head">
+      ${single?'':`<div class="scope-flag">Whole chapter · ${scope.sets.length} sets</div>`}
+      <h2>${esc(scope.name)}</h2>
+      <div class="sub">${total} cards · ${due? due+' to review':'all caught up'} · ${scopeMastery(scope)}% learned</div>
+      <div class="head-controls">
+        <button class="btn btn-soft" id="switch-set">Choose another set</button>
+        ${flagged?`<button class="btn btn-soft flagged-btn" id="flagged-btn">${flagSvg()} Revisit flagged · ${flagged}</button>`:''}
+      </div>
+    </div>
+    <div class="modegrid">
+      <button class="modecard amber" data-mode="learn">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg></div>
+        <div><h4>Learn</h4><p>Spaced review of what's due. The smart one.</p></div>
+      </button>
+      <button class="modecard" data-mode="flip">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 12h18"/></svg></div>
+        <div><h4>Flip</h4><p>Flip through every card, your pace.</p></div>
+      </button>
+      <button class="modecard" data-mode="match">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+        <div><h4>Match</h4><p>Race to pair terms with meanings.</p></div>
+      </button>
+      <button class="modecard" data-mode="test">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div>
+        <div><h4>Test</h4><p>Quiz yourself, mixed question types.</p></div>
+      </button>
+      <button class="modecard wide" data-mode="listen">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M19 5a9 9 0 010 14"/></svg></div>
+        <div class="txt"><h4>Listen</h4><p>Hear each card read aloud, hands-free — great for tricky pronunciations.</p></div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      ${single?`<button class="modecard wide" data-mode="edit">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></div>
+        <div class="txt"><h4>Edit this set</h4><p>Add, change, or remove cards and images.</p></div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>`:''}
+    </div>
+    <div class="board">
+      <h4>Where your cards sit</h4>
+      <div class="hint">Each ${single?'card':'card in this chapter'} climbs left-to-right as you get it right, and comes back less often the further right it goes.</div>
+      <div class="boxes">
+        ${counts.map((n,i)=>`<div class="box"><div class="cnt">${n}</div><div class="bar" style="height:${8+(n/maxc)*78}px"></div><div class="lbl">${BOX_LABELS[i]}</div></div>`).join('')}
+      </div>
+    </div>`;
+  body.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+    const m=b.dataset.mode;
+    if(m==='edit') openEditor(scope.sets[0]);
+    else if(m==='learn') startLearn(scope);
+    else if(m==='flip') startFlip(scope);
+    else if(m==='match') startMatch(scope);
+    else if(m==='test') startTest(scope);
+    else if(m==='listen') startListen(scope);
+  });
+  $('#switch-set').onclick=()=>switchTab('sets');
+  const fb=$('#flagged-btn'); if(fb) fb.onclick=()=>startFlagged(scope);
+}
+
+/* =========================================================================
+   STUDY MODE: Flip
+   ========================================================================= */
+let sess={};
+function openSession(html){ const s=$('#session'); s.classList.add('active'); s.innerHTML=html; }
+function closeSession(){ $('#session').classList.remove('active'); $('#session').innerHTML=''; renderStudy(); renderSets(); }
+
+/* ---- scope: a study session runs over one set OR a whole chapter ---- */
+function scopeOf(set){ return {name:set.name, sets:[set]}; }
+function scopeChapter(code){
+  if(code==='__other'){
+    const known=new Set((SEED&&SEED.chapters||[]).map(c=>c.code));
+    return {name:'Your own sets', sets:SETS.filter(s=>!s.chapter||!known.has(s.chapter))};
+  }
+  const sets=SETS.filter(s=>s.chapter===code);
+  const ch=(SEED&&SEED.chapters||[]).find(c=>c.code===code);
+  return {name:ch?`${ch.code} · ${ch.title}`:code, sets};
+}
+/* flat list of cards, each invisibly tagged with its origin set id (_sid) */
+function poolOf(scope){ const out=[]; scope.sets.forEach(s=>(s.cards||[]).forEach(c=>{
+  try{ Object.defineProperty(c,'_sid',{value:s.id,enumerable:false,configurable:true,writable:true}); }catch(e){ c._sid=s.id; }
+  out.push(c); })); return out; }
+function scopeDue(scope){ const t=today(); return poolOf(scope).filter(c=>cardState(c._sid,c.id).due<=t); }
+function sidOf(c){ return c._sid; }
+
+/* ---- which side leads: 'term' shows term first, 'def' shows definition first,
+        'mixed' randomises per card. Returns an array of booleans (def-is-prompt). */
+function buildOrient(pool){ const d=META.dir||'term'; return pool.map(()=> d==='mixed' ? (Math.random()<0.5) : d==='def'); }
+function sideOf(c,kind){ return kind==='term'
+  ? {kind:'term',label:'Term',text:c.term,img:c.termImg}
+  : {kind:'def', label:'Definition',text:c.def, img:c.defImg}; }
+
+/* ---- audio (text-to-speech) + home-language support ---- */
+const LANGS=[
+  {code:'ar', name:'العربية', en:'Arabic',     rtl:true, voice:'ar'},
+  {code:'tr', name:'Türkçe',  en:'Turkish',              voice:'tr'},
+  {code:'vi', name:'Tiếng Việt', en:'Vietnamese',        voice:'vi'},
+  {code:'prs',name:'دری',     en:'Dari',       rtl:true, voice:'fa'},
+  {code:'syr',name:'ܣܘܪܝܝܐ',  en:'Assyrian',   rtl:true, voice:''}
+];
+function ttsOK(){ return typeof window!=='undefined' && 'speechSynthesis' in window; }
+function speak(text,voiceLang){ if(!ttsOK()||!text) return;
+  try{ window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.rate = META.slow?0.6:0.85;
+    if(voiceLang) u.lang=voiceLang;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+function stopSpeak(){ if(ttsOK()) try{ window.speechSynthesis.cancel(); }catch(e){} }
+function langMeta(code){ return LANGS.find(l=>l.code===code); }
+
+async function redrawFaces(){
+  const c=sess.cards[sess.i], defFirst=sess.orient[sess.i];
+  $('#front').innerHTML=await faceHTML(sideOf(c, defFirst?'def':'term'), c, true);
+  $('#back').innerHTML =await faceHTML(sideOf(c, defFirst?'term':'def'), c, false);
+  bindStar(); bindCardExtras();
+}
+function bindCardExtras(){
+  $$('[data-speak]').forEach(b=>b.onclick=e=>{ e.stopPropagation();
+    const c=sess.cards[sess.i], kind=b.dataset.speak;
+    if(kind==='term'){ speak(c.term); return; }
+    if(META.lang){ const L=langMeta(META.lang); if(c.tr&&c.tr[META.lang]&&L&&L.voice){ speak(c.tr[META.lang],L.voice); return; } }
+    speak((META.simpleOn&&c.simple)?c.simple:c.def);
+  });
+  $$('[data-simpler]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); META.simpleOn=!META.simpleOn; await DB.put('meta',META.simpleOn,'simpleOn'); redrawFaces(); });
+  $$('[data-parts]').forEach(b=>b.onclick=async e=>{ e.stopPropagation(); META.partsOn=!META.partsOn; await DB.put('meta',META.partsOn,'partsOn'); redrawFaces(); });
+  $$('[data-lang]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); openLangPicker(); });
+}
+function openLangPicker(){
+  const c=sess.cards[sess.i];
+  const avail=LANGS.filter(l=>c.tr&&c.tr[l.code]);
+  const sheet=document.createElement('div'); sheet.className='sheet';
+  sheet.innerHTML=`<div class="sheet-card">
+    <div class="sheet-h">Show the meaning in…</div>
+    <button class="sheet-opt ${!META.lang?'on':''}" data-pl="">English only</button>
+    ${avail.map(l=>`<button class="sheet-opt ${META.lang===l.code?'on':''}" data-pl="${l.code}"><span ${l.rtl?'dir="rtl"':''}>${l.name}</span><em>${l.en}</em></button>`).join('')}
+  </div>`;
+  sheet.onclick=e=>{ if(e.target===sheet) sheet.remove(); };
+  sheet.querySelectorAll('[data-pl]').forEach(b=>b.onclick=async()=>{ META.lang=b.dataset.pl||null; await DB.put('meta',META.lang,'lang'); sheet.remove(); redrawFaces(); });
+  document.body.appendChild(sheet);
+}
+
+/* in-session control to switch which side leads; re-renders the current card live */
+function dirControlHTML(){ const d=META.dir||'term'; return `
+  <div class="sess-dir"><div class="seg dir-seg">
+    <button data-dir="term" class="${d==='term'?'on':''}">Term</button>
+    <button data-dir="def" class="${d==='def'?'on':''}">Definition</button>
+    <button data-dir="mixed" class="${d==='mixed'?'on':''}">Mix</button>
+  </div></div>`; }
+function bindDirControl(){ $$('.sess-dir [data-dir]').forEach(b=>b.onclick=()=>sessionSetDir(b.dataset.dir)); }
+async function sessionSetDir(d){
+  META.dir=d; await DB.put('meta',d,'dir');
+  for(let k=sess.i;k<sess.cards.length;k++){ sess.orient[k] = d==='mixed' ? (Math.random()<0.5) : (d==='def'); }
+  $$('.sess-dir [data-dir]').forEach(x=>x.classList.toggle('on',x.dataset.dir===d));
+  sess.flipped=false; $('#flip').classList.remove('flipped');
+  if(sess.mode==='learn') drawLearn(); else drawFlip();
+}
+
+async function startFlip(scope){
+  if(!scope.sets) scope=scopeOf(scope);
+  const pool=poolOf(scope);
+  if(!pool.length){ toast('This set has no cards yet'); return; }
+  sess={scope,cards:[...pool],orient:buildOrient(pool),i:0,flipped:false,mode:'flip'};
+  openSession(`
+    <div class="sess-top">
+      <button class="close" id="x">${xSvg()}</button>
+      <div class="progbar"><i id="pb"></i></div>
+      <div class="sess-count" id="cnt"></div>
+    </div>
+    ${dirControlHTML()}
+    <div class="cardstage">
+      <div class="flip" id="flip"><div class="flip-inner">
+        <div class="face front" id="front"></div>
+        <div class="face back" id="back"></div>
+      </div></div>
+    </div>
+    <div class="sess-actions">
+      <div class="nav-flip">
+        <button class="arrow" id="prev">${chevron('l')}</button>
+        <button class="flipbtn" id="flipbtn">Flip card</button>
+        <button class="arrow" id="next">${chevron('r')}</button>
+      </div>
+    </div>`);
+  $('#x').onclick=closeSession;
+  bindDirControl();
+  $('#flip').onclick=$('#flipbtn').onclick=()=>{ sess.flipped=!sess.flipped; $('#flip').classList.toggle('flipped',sess.flipped); };
+  $('#prev').onclick=()=>moveFlip(-1); $('#next').onclick=()=>moveFlip(1);
+  swipeBind($('#flip'),()=>moveFlip(1),()=>moveFlip(-1));
+  await drawFlip();
+}
+function moveFlip(d){ const n=sess.i+d; if(n<0||n>=sess.cards.length) return; sess.i=n; sess.flipped=false; $('#flip').classList.remove('flipped'); drawFlip(); }
+async function drawFlip(){
+  const c=sess.cards[sess.i], defFirst=sess.orient[sess.i];
+  $('#cnt').textContent=`${sess.i+1} / ${sess.cards.length}`;
+  $('#pb').style.width=`${(sess.i+1)/sess.cards.length*100}%`;
+  $('#front').innerHTML=await faceHTML(sideOf(c, defFirst?'def':'term'), c, true);
+  $('#back').innerHTML =await faceHTML(sideOf(c, defFirst?'term':'def'), c, false);
+  $('#prev').disabled=sess.i===0; $('#next').disabled=sess.i===sess.cards.length-1;
+  bindStar(); bindCardExtras();
+}
+async function faceHTML(side,card,isFront){
+  const src=await imgURL(side.img);
+  const flag=isFront?`<button class="flag ${card.starred?'on':''}" data-star="${card.id}" aria-label="Flag this card to revisit">${flagSvg()}</button>`:'';
+  const isDef=side.kind==='def', isTerm=side.kind==='term';
+  const hasParts = card.syll || (card.parts && card.parts.length);
+  let text=side.text;
+  if(isDef && META.simpleOn && card.simple) text=card.simple;
+  let extra='';
+  if(isDef && META.lang && card.tr && card.tr[META.lang]){ const L=langMeta(META.lang);
+    extra+=`<div class="def-tr" ${L&&L.rtl?'dir="rtl"':''}>${esc(card.tr[META.lang])}</div>`; }
+  if(isTerm && META.partsOn && hasParts) extra+=partsPanel(card);
+  const bar=[];
+  if(ttsOK()) bar.push(`<button class="cbtn" data-speak="${side.kind}" aria-label="Hear it">${spkSvg()}</button>`);
+  if(isTerm && hasParts) bar.push(`<button class="cbtn ${META.partsOn?'on':''}" data-parts aria-label="Break the word into parts">a·b</button>`);
+  if(isDef && card.simple) bar.push(`<button class="cbtn ${META.simpleOn?'on':''}" data-simpler aria-label="Simpler English">Aa</button>`);
+  if(isDef && card.tr && Object.keys(card.tr).length) bar.push(`<button class="cbtn ${META.lang?'on':''}" data-lang aria-label="Translate">${globeSvg()}</button>`);
+  const barHTML=bar.length?`<div class="card-audio">${bar.join('')}</div>`:'';
+  return `<div class="side-tag">${side.label}</div>${flag}
+    ${src?`<img class="cardimg" src="${src}" alt="">`:''}
+    <div class="${side.kind==='term'?'term':'def'}">${esc(text||'')}</div>
+    ${extra}${barHTML}
+    ${isFront?'<div class="tap-hint">tap to flip</div>':''}`;
+}
+function partsPanel(card){
+  let h='';
+  if(card.syll) h+=`<div class="syll">${esc(card.syll)}</div>`;
+  if(card.parts && card.parts.length) h+=`<div class="morphs">${card.parts.map(p=>`<span class="morph"><b>${esc(p.p)}</b>${p.m?` — ${esc(p.m)}`:''}</span>`).join('')}</div>`;
+  return h?`<div class="parts-panel">${h}</div>`:'';
+}
+function bindStar(){ $$('[data-star]').forEach(b=>b.onclick=async e=>{ e.stopPropagation();
+  const id=b.dataset.star;
+  for(const s of SETS){ const c=s.cards.find(x=>x.id===id); if(c){ c.starred=!c.starred; await DB.put('sets',s); b.classList.toggle('on',c.starred); toast(c.starred?'Flagged to revisit':'Flag removed'); break; } } }); }
+
+/* =========================================================================
+   STUDY MODE: Learn (Leitner)
+   ========================================================================= */
+async function startLearn(scope){
+  if(!scope.sets) scope=scopeOf(scope);
+  let pool=scopeDue(scope);
+  if(!pool.length){
+    pool=poolOf(scope).sort((a,b)=>cardState(sidOf(a),a.id).box-cardState(sidOf(b),b.id).box).slice(0,SESSION_CAP);
+    if(!pool.length){ toast('Add some cards first'); return; }
+    toast('Nothing due — reviewing your weakest cards');
+  }
+  runLearn(scope,pool);
+}
+function startFlagged(scope){
+  if(!scope.sets) scope=scopeOf(scope);
+  const pool=poolOf(scope).filter(c=>c.starred);
+  if(!pool.length){ toast('No flagged cards here yet'); return; }
+  runLearn(scope,pool,true);
+}
+function runLearn(scope,pool,flaggedRun){
+  pool=shuffle(pool).slice(0,SESSION_CAP);
+  sess={scope,cards:pool,orient:buildOrient(pool),i:0,flipped:false,right:0,wrong:0,mode:'learn',flaggedRun:!!flaggedRun};
+  openSession(`
+    <div class="sess-top">
+      <button class="close" id="x">${xSvg()}</button>
+      <div class="progbar"><i id="pb"></i></div>
+      <div class="sess-count" id="cnt"></div>
+    </div>
+    ${dirControlHTML()}
+    <div class="cardstage">
+      <div class="flip" id="flip"><div class="flip-inner">
+        <div class="face front" id="front"></div>
+        <div class="face back" id="back"></div>
+      </div></div>
+    </div>
+    <div class="sess-actions" id="acts"></div>`);
+  $('#x').onclick=closeSession;
+  bindDirControl();
+  $('#flip').onclick=()=>revealLearn();
+  swipeBind($('#flip'),()=>revealLearn(),()=>revealLearn());
+  drawLearn();
+}
+async function drawLearn(){
+  const c=sess.cards[sess.i], defFirst=sess.orient[sess.i];
+  sess.flipped=false; $('#flip').classList.remove('flipped');
+  $('#cnt').textContent=`${sess.i+1} / ${sess.cards.length}`;
+  $('#pb').style.width=`${sess.i/sess.cards.length*100}%`;
+  $('#front').innerHTML=await faceHTML(sideOf(c, defFirst?'def':'term'), c, true);
+  $('#back').innerHTML =await faceHTML(sideOf(c, defFirst?'term':'def'), c, false);
+  $('#acts').innerHTML=`<button class="flipbtn btn-block" id="reveal" style="padding:16px;border-radius:15px;background:var(--chloro);color:#fff;font-weight:600;width:100%">Show answer</button>`;
+  $('#reveal').onclick=revealLearn; bindStar(); bindCardExtras();
+}
+function revealLearn(){
+  if(sess.flipped) return; sess.flipped=true; $('#flip').classList.add('flipped');
+  $('#acts').innerHTML=`<div class="grade-q">Did you recall it?</div>
+    <div class="grade">
+      <button class="miss" id="g-miss">Not yet<small>brings it back soon</small></button>
+      <button class="got" id="g-got">Got it<small>spaces it out</small></button>
+    </div>`;
+  $('#g-miss').onclick=()=>answerLearn(false);
+  $('#g-got').onclick=()=>answerLearn(true);
+}
+async function answerLearn(correct){
+  const c=sess.cards[sess.i];
+  grade(sidOf(c),c.id,correct);
+  correct?sess.right++:sess.wrong++;
+  await saveProgress(sidOf(c));
+  await recordReview();
+  sess.i++;
+  if(sess.i>=sess.cards.length){ learnDone(); return; }
+  drawLearn();
+}
+function learnDone(){
+  const total=sess.right+sess.wrong, pct=total?Math.round(sess.right/total*100):0;
+  const missPct=100-pct;
+  const scope=sess.scope, stillDue=scopeDue(scope).length;
+  $('#session').innerHTML=`
+    <div class="sess-top"><button class="close" id="x">${xSvg()}</button><div class="progbar"><i style="width:100%"></i></div><div class="sess-count"></div></div>
+    <div class="results">
+      ${ring(pct)}
+      <h2>${pct>=80?'Strong session':pct>=50?'Good work':'Keep at it'}</h2>
+      <div class="split">
+        <div class="split-bar">
+          <div class="g" style="width:${pct}%"></div><div class="m" style="width:${missPct}%"></div>
+        </div>
+        <div class="split-legend">
+          <span class="g">Got it · ${pct}% (${sess.right})</span>
+          <span class="m">Not yet · ${missPct}% (${sess.wrong})</span>
+        </div>
+      </div>
+      <p>${stillDue?`${stillDue} still to review — go again whenever you like.`:`Nothing left to review here right now.`}</p>
+      <div class="btn-row">
+        ${stillDue?`<button class="btn btn-primary" id="again">Keep going</button>`:''}
+        <button class="btn btn-ghost" id="done">Done</button>
+      </div>
+    </div>`;
+  $('#x').onclick=$('#done').onclick=closeSession;
+  if(stillDue) $('#again').onclick=()=>startLearn(scope);
+}
+
+/* =========================================================================
+   STUDY MODE: Match
+   ========================================================================= */
+async function startMatch(scope){
+  if(!scope.sets) scope=scopeOf(scope);
+  const usable=poolOf(scope).filter(c=>c.term&&c.def);
+  if(usable.length<3){ toast('Need at least 3 complete cards'); return; }
+  const picks=shuffle(usable).slice(0,6);
+  const tiles=[];
+  for(const c of picks){
+    tiles.push({cid:c.id,kind:'t',text:c.term,img:await imgURL(c.termImg)});
+    tiles.push({cid:c.id,kind:'d',text:c.def,img:await imgURL(c.defImg)});
+  }
+  shuffle(tiles);
+  sess={scope,start:Date.now(),sel:null,left:picks.length};
+  openSession(`
+    <div class="sess-top"><button class="close" id="x">${xSvg()}</button><div class="match-timer" id="timer" style="flex:1">0.0s</div><div style="width:38px"></div></div>
+    <div class="matchwrap"><div class="matchgrid" id="grid"></div></div>`);
+  const grid=$('#grid');
+  tiles.forEach((t,idx)=>{ const el=document.createElement('button'); el.className='tile'; el.dataset.cid=t.cid; el.dataset.k=t.kind;
+    el.innerHTML=t.img?`<img src="${t.img}" alt="">`:esc(t.text);
+    el.onclick=()=>tapTile(el); grid.appendChild(el); });
+  $('#x').onclick=closeSession;
+  sess.timer=setInterval(()=>{ $('#timer').textContent=((Date.now()-sess.start)/1000).toFixed(1)+'s'; },100);
+}
+function tapTile(el){
+  if(el.classList.contains('gone')||el.classList.contains('sel')) return;
+  if(!sess.sel){ sess.sel=el; el.classList.add('sel'); return; }
+  const a=sess.sel, b=el;
+  if(a.dataset.cid===b.dataset.cid && a.dataset.k!==b.dataset.k){
+    a.classList.add('gone'); b.classList.add('gone'); a.classList.remove('sel'); sess.sel=null; sess.left--;
+    if(sess.left===0) matchDone();
+  } else {
+    b.classList.add('bad'); a.classList.add('bad');
+    setTimeout(()=>{ a.classList.remove('bad','sel'); b.classList.remove('bad'); },380);
+    sess.sel=null;
+  }
+}
+function matchDone(){
+  clearInterval(sess.timer);
+  const secs=((Date.now()-sess.start)/1000).toFixed(1);
+  $('#session').innerHTML=`
+    <div class="sess-top"><button class="close" id="x">${xSvg()}</button><div style="flex:1"></div></div>
+    <div class="results">${ring(100,secs+'s')}<h2>All matched</h2><p>Finished in ${secs} seconds. Nice and quick.</p>
+    <div class="btn-row"><button class="btn btn-primary" id="again">Play again</button><button class="btn btn-ghost" id="done">Done</button></div></div>`;
+  $('#x').onclick=$('#done').onclick=closeSession; $('#again').onclick=()=>startMatch(sess.scope);
+}
+
+/* =========================================================================
+   STUDY MODE: Test
+   ========================================================================= */
+async function startTest(scope){
+  if(!scope.sets) scope=scopeOf(scope);
+  const all=poolOf(scope);
+  const usable=all.filter(c=>c.term&&c.def);
+  if(usable.length<2){ toast('Need at least 2 complete cards'); return; }
+  const qs=shuffle(usable.slice()).slice(0,Math.min(12,usable.length)).map((c,i)=>({
+    card:c, type:(usable.length>=4 && i%2===0)?'mc':'written'
+  }));
+  sess={scope,all,qs,i:0,score:0,answered:false};
+  openSession(`<div class="sess-top"><button class="close" id="x">${xSvg()}</button><div class="progbar"><i id="pb"></i></div><div class="sess-count" id="cnt"></div></div><div class="testwrap" id="tw"></div>`);
+  $('#x').onclick=closeSession;
+  await drawTest();
+}
+async function drawTest(){
+  const q=sess.qs[sess.i], c=q.card; sess.answered=false;
+  $('#cnt').textContent=`${sess.i+1} / ${sess.qs.length}`;
+  $('#pb').style.width=`${sess.i/sess.qs.length*100}%`;
+  const tw=$('#tw');
+  const promptImg=await imgURL(c.termImg);
+  const head=`<div class="q-prompt"><div class="qlabel">${promptImg?'Identify this':'What is the definition of'}</div>${promptImg?`<img src="${promptImg}" alt="">`:''}<div class="qterm">${esc(c.term)}</div></div>`;
+  if(q.type==='mc'){
+    const others=shuffle(sess.all.filter(x=>x.id!==c.id && x.def)).slice(0,3).map(x=>x.def);
+    const opts=shuffle([c.def,...others]);
+    tw.innerHTML=head+`<div class="opts">${opts.map(o=>`<button class="opt">${esc(o)}</button>`).join('')}</div>`;
+    tw.querySelectorAll('.opt').forEach(btn=>btn.onclick=()=>{
+      if(sess.answered) return; sess.answered=true;
+      const correct=btn.textContent===c.def;
+      tw.querySelectorAll('.opt').forEach(o=>{ if(o.textContent===c.def)o.classList.add('correct'); else if(o===btn)o.classList.add('wrong'); else o.classList.add('dim'); o.onclick=null; });
+      if(correct)sess.score++;
+      nextTestBtn();
+    });
+  } else {
+    tw.innerHTML=head+`<div class="written"><input type="text" id="ans" placeholder="Type the definition…" autocomplete="off"><div id="fb"></div></div>`;
+    const inp=$('#ans'); inp.focus();
+    const check=()=>{ if(sess.answered) return; sess.answered=true;
+      const val=inp.value.trim().toLowerCase(), target=c.def.trim().toLowerCase();
+      const ok = val.length>2 && (target.includes(val)||val.includes(target)|| similar(val,target));
+      if(ok)sess.score++;
+      inp.disabled=true;
+      $('#fb').innerHTML=`<div class="feedback ${ok?'ok':'no'}"><b>${ok?'Counted as correct':'Model answer'}</b>${esc(c.def)}</div>`;
+      nextTestBtn();
+    };
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter')check(); });
+    tw.insertAdjacentHTML('beforeend',`<button class="btn btn-primary btn-block" id="checkbtn" style="margin-top:14px">Check answer</button>`);
+    $('#checkbtn').onclick=check;
+  }
+}
+function nextTestBtn(){
+  recordReview();
+  const tw=$('#tw'); const last=sess.i===sess.qs.length-1;
+  tw.insertAdjacentHTML('beforeend',`<button class="btn btn-primary btn-block" id="nextq" style="margin-top:16px">${last?'See results':'Next question'}</button>`);
+  $('#nextq').onclick=()=>{ sess.i++; if(sess.i>=sess.qs.length) testDone(); else drawTest(); };
+}
+function testDone(){
+  const pct=Math.round(sess.score/sess.qs.length*100);
+  $('#session').innerHTML=`<div class="sess-top"><button class="close" id="x">${xSvg()}</button><div class="progbar"><i style="width:100%"></i></div><div class="sess-count"></div></div>
+    <div class="results">${ring(pct)}<h2>${sess.score} / ${sess.qs.length}</h2><p>${pct>=80?'Really solid.':pct>=50?'Decent — worth another Learn round.':'Run a Learn session on this set next.'}</p>
+    <div class="btn-row"><button class="btn btn-primary" id="again">Try again</button><button class="btn btn-ghost" id="done">Done</button></div></div>`;
+  $('#x').onclick=$('#done').onclick=closeSession; $('#again').onclick=()=>startTest(sess.scope);
+}
+function similar(a,b){ if(Math.abs(a.length-b.length)>4) return false; let m=0; const s=new Set(b.split(/\s+/)); a.split(/\s+/).forEach(w=>{if(s.has(w))m++}); return m>=Math.max(1,Math.floor(s.size*0.6)); }
+
+/* =========================================================================
+   EDITOR
+   ========================================================================= */
+let draft=null;
+function openEditor(set){
+  draft = set ? JSON.parse(JSON.stringify(set)) : {id:uid(),name:'',cards:[]};
+  draft._isNew=!set;
+  if(!draft.cards.length) draft.cards.push(newCard());
+  const m=$('#editor'); m.classList.add('active');
+  m.innerHTML=`
+    <div class="modal-top">
+      <button class="cancel" id="ed-cancel">Cancel</button>
+      <h2>${set?'Edit set':'New set'}</h2>
+      <button id="ed-save">Save</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Set name</label><input type="text" id="ed-name" value="${esc(draft.name)}" placeholder="e.g. Cell Biology — Unit 1"></div>
+      <div class="seg"><button class="on" data-edmode="cards">Card by card</button><button data-edmode="paste">Paste a list</button></div>
+      <div id="ed-cards"></div>
+      <div id="ed-paste" style="display:none"></div>
+      ${set?`<button class="btn" id="ed-delete" style="color:var(--rose);background:var(--rose-soft);width:100%;margin-top:8px">Delete this set</button>`:''}
+    </div>`;
+  $('#ed-cancel').onclick=()=>m.classList.remove('active');
+  $('#ed-save').onclick=saveDraft;
+  if(set) $('#ed-delete').onclick=()=>deleteSet(set);
+  m.querySelectorAll('[data-edmode]').forEach(b=>b.onclick=()=>{
+    m.querySelectorAll('[data-edmode]').forEach(x=>x.classList.toggle('on',x===b));
+    const paste=b.dataset.edmode==='paste';
+    $('#ed-paste').style.display=paste?'block':'none';
+    $('#ed-cards').style.display=paste?'none':'block';
+    if(paste) renderPaste();
+  });
+  renderCards();
+}
+function newCard(){ return {id:uid(),term:'',def:'',termImg:null,defImg:null}; }
+async function renderCards(){
+  const wrap=$('#ed-cards'); wrap.innerHTML='';
+  for(let idx=0; idx<draft.cards.length; idx++){
+    const c=draft.cards[idx];
+    const row=document.createElement('div'); row.className='cardrow';
+    const tImg=await imgURL(c.termImg), dImg=await imgURL(c.defImg);
+    row.innerHTML=`
+      <div class="rowhead"><span>CARD ${idx+1}</span><button class="del" data-del="${idx}">Remove</button></div>
+      <textarea data-f="term" data-i="${idx}" placeholder="Term / prompt">${esc(c.term)}</textarea>
+      <div class="imgrow" style="margin-bottom:10px">
+        ${tImg?`<img class="thumb" src="${tImg}">`:''}
+        <button class="imgbtn ${c.termImg?'has':''}" data-img="term" data-i="${idx}">${imgIcon()} ${c.termImg?'Change image':'Add image'}</button>
+        ${c.termImg?`<button class="imgclear" data-clear="term" data-i="${idx}">remove</button>`:''}
+      </div>
+      <textarea data-f="def" data-i="${idx}" placeholder="Definition / answer">${esc(c.def)}</textarea>
+      <div class="imgrow">
+        ${dImg?`<img class="thumb" src="${dImg}">`:''}
+        <button class="imgbtn ${c.defImg?'has':''}" data-img="def" data-i="${idx}">${imgIcon()} ${c.defImg?'Change image':'Add image'}</button>
+        ${c.defImg?`<button class="imgclear" data-clear="def" data-i="${idx}">remove</button>`:''}
+      </div>`;
+    wrap.appendChild(row);
+  }
+  const add=document.createElement('button'); add.className='btn btn-soft btn-block'; add.style.marginTop='4px'; add.textContent='+ Add card';
+  add.onclick=()=>{ draft.cards.push(newCard()); renderCards(); };
+  wrap.appendChild(add);
+  wrap.querySelectorAll('textarea').forEach(t=>t.oninput=()=>{ draft.cards[+t.dataset.i][t.dataset.f]=t.value; });
+  wrap.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ draft.cards.splice(+b.dataset.del,1); if(!draft.cards.length)draft.cards.push(newCard()); renderCards(); });
+  wrap.querySelectorAll('[data-img]').forEach(b=>b.onclick=()=>pickImage(+b.dataset.i,b.dataset.img));
+  wrap.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{ draft.cards[+b.dataset.i][b.dataset.clear+'Img']=null; renderCards(); });
+}
+function pickImage(idx,field){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*';
+  inp.onchange=async()=>{ const file=inp.files[0]; if(!file) return;
+    if(file.size>3.5*1024*1024){ toast('Image is large — it may slow things on phones'); }
+    const key='img_'+uid();
+    await DB.put('images', file, key);
+    draft.cards[idx][field+'Img']=key;
+    renderCards();
+  };
+  inp.click();
+}
+function renderPaste(){
+  $('#ed-paste').innerHTML=`
+    <div class="field">
+      <label>Paste your cards</label>
+      <textarea id="paste-area" style="min-height:200px;font-family:monospace;font-size:13px" placeholder="mitochondrion\tsite of aerobic respiration\nribosome\tmakes proteins\n…"></textarea>
+      <div class="help">One card per line. Put a <b>Tab</b> between the term and its definition — exactly how it copies out of Excel or Google Sheets. Or change the separator below.</div>
+    </div>
+    <div class="field"><label>Separator between term & definition</label>
+      <select id="sep" style="width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:13px">
+        <option value="tab">Tab (from a spreadsheet)</option>
+        <option value="comma">Comma</option>
+        <option value="dash"> - dash</option>
+      </select></div>
+    <button class="btn btn-primary btn-block" id="paste-add">Add these cards</button>
+    <div class="help" style="margin-top:10px">Images can be added afterwards on the “Card by card” tab.</div>`;
+  $('#paste-add').onclick=()=>{
+    const raw=$('#paste-area').value, sep=$('#sep').value;
+    const re = sep==='tab'?/\t+/ : sep==='comma'?/\s*,\s*/ : /\s+-\s+/;
+    const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    let added=0;
+    // drop placeholder empty card if present
+    draft.cards=draft.cards.filter(c=>c.term||c.def||c.termImg||c.defImg);
+    lines.forEach(l=>{ const parts=l.split(re); if(parts.length>=2){ draft.cards.push({id:uid(),term:parts[0].trim(),def:parts.slice(1).join(' ').trim(),termImg:null,defImg:null}); added++; } });
+    if(!added){ toast('No cards found — check the separator'); return; }
+    if(!draft.cards.length) draft.cards.push(newCard());
+    toast(`Added ${added} card${added!==1?'s':''}`);
+    // flip back to card view
+    $('#editor').querySelector('[data-edmode="cards"]').click();
+  };
+}
+async function saveDraft(){
+  draft.name=$('#ed-name').value.trim()||'Untitled set';
+  draft.cards=draft.cards.filter(c=>c.term||c.def||c.termImg||c.defImg);
+  if(!draft.cards.length){ toast('Add at least one card'); return; }
+  delete draft._isNew;
+  await DB.put('sets',draft);
+  await loadAll();
+  current=SETS.find(s=>s.id===draft.id)||current;
+  studyScope=current?scopeOf(current):null;
+  $('#editor').classList.remove('active');
+  toast('Saved');
+  renderSets(); renderStudy();
+}
+async function removeSet(id){ await DB.del('sets',id); await DB.del('progress',id); delete PROGRESS[id]; }
+
+async function deleteSet(set){
+  if(!confirm(`Delete “${set.name}” and its progress? This can't be undone.`)) return;
+  await removeSet(set.id);
+  await loadAll(); if(current&&current.id===set.id) current=SETS[0]||null;
+  studyScope=current?scopeOf(current):null;
+  $('#editor').classList.remove('active'); queueSync();
+  renderSets(); renderStudy(); toast('Set deleted');
+}
+
+/* ---- delete / restore from the Sets screen (Manage mode) ---- */
+async function deleteSetFromList(id){
+  const set=SETS.find(s=>s.id===id); if(!set) return;
+  if(!confirm(`Delete “${set.name}” and its progress? This can't be undone.`)) return;
+  await removeSet(id);
+  await loadAll(); if(current&&current.id===id) current=SETS[0]||null;
+  studyScope=current?scopeOf(current):null; queueSync();
+  renderSets(); toast('Set deleted');
+}
+async function deleteChapterFromList(code){
+  const sets=scopeChapter(code).sets; if(!sets.length) return;
+  const label = code==='__other' ? 'Your own sets' : `chapter ${code}`;
+  if(!confirm(`Delete all ${sets.length} set${sets.length!==1?'s':''} in ${label}, and their progress? This can't be undone.`)) return;
+  for(const s of sets) await removeSet(s.id);
+  await loadAll(); if(current&&!SETS.some(s=>s.id===current.id)) current=SETS[0]||null;
+  studyScope=current?scopeOf(current):null; queueSync();
+  renderSets(); toast('Deleted');
+}
+async function restoreBundled(){
+  if(!SEED){ toast('No bundled sets to restore'); return; }
+  await DB.put('meta',0,'contentVersion');   // force a re-sync of the baked content
+  await syncContent(SEED);
+  await loadAll(); current=SETS[0]||null; studyScope=null; openChapters=null;
+  renderSets(); toast('Biology sets restored');
+}
+
+let manageMode=false;
+function updateManageBtn(){ const b=$('#manage-toggle'); if(b) b.classList.toggle('on',manageMode); }
+function toggleManage(){ manageMode=!manageMode; updateManageBtn(); renderSets(); if(!manageMode) toast('Done'); }
+function trashSvg(){ return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m5 4v6m4-6v6"/></svg>`; }
+
+/* import a Recall sets file (.json) — creates sets and materialises any images */
+function importSetsFile(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json,.json';
+  inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; await loadSetsData(await f.text()); };
+  inp.click();
+}
+async function loadSetsData(text){
+  try{
+    const data=JSON.parse(text);
+    const sets=Array.isArray(data)?data:data.sets;
+    if(!Array.isArray(sets)) throw 0;
+    let nSets=0,nCards=0;
+    for(const s of sets){
+      const set={id:uid(),name:(s.name||'Imported set').toString(),cards:[]};
+      for(const c of (s.cards||[])){
+        const card={id:uid(),term:(c.term||'').toString(),def:(c.def||'').toString(),termImg:null,defImg:null,starred:false};
+        if('simple' in c) card.simple=c.simple;
+        if('tr' in c) card.tr=c.tr;
+        if('syll' in c) card.syll=c.syll;
+        if('parts' in c) card.parts=c.parts;
+        if(c.timg) card.termImg=await materializeImg(c.timg);
+        if(c.dimg) card.defImg=await materializeImg(c.dimg);
+        set.cards.push(card); nCards++;
+      }
+      if(set.cards.length){ await DB.put('sets',set); nSets++; }
+    }
+    await loadAll(); if(SETS.length&&!current) current=SETS[0];
+    studyScope=null; openChapters=null;
+    renderSets(); renderStudy();
+    toast(`Imported ${nSets} set${nSets!==1?'s':''} · ${nCards} cards`);
+  }catch(e){ toast('That didn’t look like a Recall sets file'); }
+}
+async function materializeImg(v){
+  try{ let blob;
+    if(typeof v==='string' && v.trim().startsWith('<svg')) blob=new Blob([v],{type:'image/svg+xml'});
+    else if(typeof v==='string' && v.startsWith('data:')){ blob=await (await fetch(v)).blob(); }
+    else return null;
+    const key='img_'+uid(); await DB.put('images',blob,key); return key;
+  }catch(e){ return null; }
+}
+
+/* import (top-bar) → load a sets file */
+function openImport(){ openEditor(); setTimeout(()=>{ const b=$('#editor').querySelector('[data-edmode="paste"]'); if(b)b.click(); },30); }
+
+/* =========================================================================
+   SYNC  (anonymous code; Firebase-ready with copy/paste fallback)
+   ========================================================================= */
+let syncTimer=null;
+function queueSync(){ if(!META.syncCode) return; clearTimeout(syncTimer); syncTimer=setTimeout(pushSync,1500); }
+
+function genCode(){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const part=n=>Array.from({length:n},()=>a[Math.floor(Math.random()*a.length)]).join('');
+  return `BIO-${part(4)}-${part(4)}`; }
+
+async function renderSync(){
+  const body=$('#sync-body');
+  const live=!!FIREBASE_CONFIG, code=META.syncCode;
+  body.innerHTML=`
+    <div class="sync-card">
+      <div class="sync-status ${live?'live':'local'}"><span class="pip"></span>${live?'Live sync ready':'Transfer mode'}</div>
+      <h3>${code?'Your sync code':'Study on more than one device'}</h3>
+      <p>${live
+        ? 'Use the same code on your phone, iPad and laptop and your progress follows you. No name, no login — the code is the only key.'
+        : 'Right now this device keeps progress on its own. Generate a code, then copy your progress across to another device. (Set up Firebase to make this automatic — there’s a note in the file.)'}</p>
+      ${code?`
+        <div class="codebox"><span class="code">${code}</span><button class="copy" id="copycode">Copy</button></div>
+        ${live?'':`
+        <div class="btn-row" style="margin-bottom:10px">
+          <button class="btn btn-primary btn-block" id="export">Copy my progress</button>
+        </div>
+        <button class="btn btn-ghost btn-block" id="import">Paste progress from another device</button>`}
+        <button class="btn" id="forget" style="color:var(--muted);width:100%;margin-top:12px;font-size:13px">Turn off sync on this device</button>
+      `:`
+        <button class="btn btn-primary btn-block" id="enable">Turn on sync</button>
+        <button class="btn btn-ghost btn-block" id="haveCode" style="margin-top:10px">I already have a code</button>
+      `}
+    </div>
+    <div class="sync-card">
+      <h3>About your data</h3>
+      <p>Recall stores everything on your device. Your cards and progress never carry your name. ${live?'Synced progress is stored against your anonymous code only.':'Nothing leaves this device unless you copy it across yourself.'}</p>
+    </div>`;
+  if(code){
+    $('#copycode').onclick=()=>{ copy(code); toast('Code copied'); };
+    $('#forget').onclick=async()=>{ META.syncCode=null; await DB.put('meta',null,'syncCode'); renderSync(); toast('Sync turned off'); };
+    if(!live){
+      $('#export').onclick=()=>{ const blob=btoa(unescape(encodeURIComponent(JSON.stringify({code,progress:PROGRESS})))); copy(blob); toast('Progress copied — paste it on your other device'); };
+      $('#import').onclick=async()=>{ const v=prompt('Paste the progress text from your other device:'); if(!v) return;
+        try{ const data=JSON.parse(decodeURIComponent(escape(atob(v.trim()))));
+          PROGRESS=mergeProgress(PROGRESS,data.progress);
+          for(const sid in PROGRESS) await DB.put('progress',PROGRESS[sid]);
+          toast('Progress merged in'); renderSets(); renderStudy();
+        }catch(e){ toast('That didn’t look like valid progress text'); } };
+    }
+  } else {
+    $('#enable').onclick=async()=>{ META.syncCode=genCode(); await DB.put('meta',META.syncCode,'syncCode'); if(live)await pushSync(); renderSync(); toast('Sync turned on'); };
+    $('#haveCode').onclick=async()=>{ const v=prompt('Enter your sync code (like BIO-XXXX-XXXX):'); if(!v) return;
+      META.syncCode=v.trim().toUpperCase(); await DB.put('meta',META.syncCode,'syncCode');
+      if(live){ await pullSync(); } renderSync(); renderSets(); renderStudy(); };
+  }
+}
+function mergeProgress(a,b){ const out=JSON.parse(JSON.stringify(a||{}));
+  for(const sid in (b||{})){ if(!out[sid]) out[sid]=b[sid]; else {
+    for(const cid in b[sid].cards){ const x=out[sid].cards[cid], y=b[sid].cards[cid];
+      // keep the more-advanced / more-recent box
+      if(!x || y.due>x.due) out[sid].cards[cid]=y; } } }
+  return out; }
+
+/* ---- Firebase hooks (only run when FIREBASE_CONFIG is set) ---- */
+let fb=null;
+async function initFirebase(){ if(!FIREBASE_CONFIG||fb) return fb;
+  await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+  await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+  firebase.initializeApp(FIREBASE_CONFIG); fb=firebase.firestore(); return fb;
+}
+async function pushSync(){ if(!FIREBASE_CONFIG||!META.syncCode) return;
+  try{ const db=await initFirebase(); await db.collection('progress').doc(META.syncCode).set({progress:PROGRESS,updated:Date.now()}); }catch(e){ console.warn('push failed',e); } }
+async function pullSync(){ if(!FIREBASE_CONFIG||!META.syncCode) return;
+  try{ const db=await initFirebase(); const doc=await db.collection('progress').doc(META.syncCode).get();
+    if(doc.exists){ PROGRESS=mergeProgress(PROGRESS,doc.data().progress); for(const sid in PROGRESS) await DB.put('progress',PROGRESS[sid]); } }catch(e){ console.warn('pull failed',e); } }
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+
+/* =========================================================================
+   helpers: svg, esc, shuffle, swipe, ring, copy
+   ========================================================================= */
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function copy(t){ navigator.clipboard?.writeText(t).catch(()=>{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }); }
+function xSvg(){ return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`; }
+function chevron(d){ return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="${d==='l'?'M15 6l-6 6 6 6':'M9 6l6 6-6 6'}"/></svg>`; }
+function starSvg(){ return `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 6 20.4l1.4-6.8L2.3 9l6.9-.7L12 2z"/></svg>`; }
+function flagSvg(){ return `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V5a1 1 0 011-1h11l-2.5 4L17 11H6"/></svg>`; }
+function spkSvg(){ return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M19 5a9 9 0 010 14"/></svg>`; }
+function globeSvg(){ return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg>`; }
+function playSvg(){ return `<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 5l12 7-12 7V5z"/></svg>`; }
+function pauseSvg(){ return `<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`; }
+
+/* ---- Listen: eyes-free play-through of a set/chapter (term → meaning → translation) ---- */
+async function startListen(scope){
+  if(!scope.sets) scope=scopeOf(scope);
+  const pool=poolOf(scope);
+  if(!pool.length){ toast('No cards to listen to'); return; }
+  if(!ttsOK()){ toast('Audio isn’t available on this device'); return; }
+  sess={scope,cards:pool,i:0,mode:'listen',playing:false};
+  openSession(`
+    <div class="sess-top">
+      <button class="close" id="x">${xSvg()}</button>
+      <div class="progbar"><i id="pb"></i></div>
+      <div class="sess-count" id="cnt"></div>
+    </div>
+    <div class="listen-stage" id="lstage"></div>
+    <div class="sess-actions listen-controls">
+      <button class="lc-speed" id="lspeed"></button>
+      <div class="lc-main">
+        <button class="arrow" id="lprev">${chevron('l')}</button>
+        <button class="lplay" id="lplay"></button>
+        <button class="arrow" id="lnext">${chevron('r')}</button>
+      </div>
+      <button class="lc-lang" id="llang">${globeSvg()}</button>
+    </div>`);
+  $('#x').onclick=()=>{ stopSpeak(); closeSession(); };
+  $('#lprev').onclick=()=>listenGo(-1);
+  $('#lnext').onclick=()=>listenGo(1);
+  $('#lplay').onclick=toggleListen;
+  $('#lspeed').onclick=async()=>{ META.slow=!META.slow; await DB.put('meta',META.slow,'slow'); updateListenSpeed(); };
+  $('#llang').onclick=()=>openLangPicker();
+  drawListen(); updateListenSpeed();
+}
+function drawListen(){
+  const c=sess.cards[sess.i];
+  $('#cnt').textContent=`${sess.i+1} / ${sess.cards.length}`;
+  $('#pb').style.width=`${(sess.i+1)/sess.cards.length*100}%`;
+  let trLine='';
+  if(META.lang && c.tr && c.tr[META.lang]){ const L=langMeta(META.lang); trLine=`<div class="def-tr" ${L&&L.rtl?'dir="rtl"':''}>${esc(c.tr[META.lang])}</div>`; }
+  $('#lstage').innerHTML=`<div class="listen-card">
+    <div class="side-tag">Listening</div>
+    <div class="term">${esc(c.term)}</div>
+    <div class="ldef">${esc((META.simpleOn&&c.simple)?c.simple:c.def)}</div>
+    ${trLine}</div>`;
+  updatePlayBtn();
+}
+function updatePlayBtn(){ const b=$('#lplay'); if(b) b.innerHTML=sess.playing?pauseSvg():playSvg(); }
+function updateListenSpeed(){ const b=$('#lspeed'); if(b){ b.textContent=META.slow?'🐢 Slow':'Normal speed'; b.classList.toggle('on',META.slow); } }
+function toggleListen(){ sess.playing=!sess.playing; updatePlayBtn(); if(sess.playing) playListen(); else stopSpeak(); }
+function listenGo(d){ stopSpeak(); const n=sess.i+d; if(n<0||n>=sess.cards.length){ sess.playing=false; updatePlayBtn(); return; } sess.i=n; drawListen(); if(sess.playing) playListen(); }
+function playListen(){
+  if(!ttsOK()){ sess.playing=false; updatePlayBtn(); return; }
+  const buildParts=()=>{ const c=sess.cards[sess.i]; const arr=[{t:c.term}];
+    arr.push({t:(META.simpleOn&&c.simple)?c.simple:c.def});
+    if(META.lang&&c.tr&&c.tr[META.lang]){ const L=langMeta(META.lang); if(L&&L.voice) arr.push({t:c.tr[META.lang],lang:L.voice}); }
+    return arr; };
+  let parts=buildParts(), k=0;
+  const step=()=>{
+    if(!sess.playing) return;
+    if(k>=parts.length){
+      if(sess.i>=sess.cards.length-1){ sess.playing=false; updatePlayBtn(); return; }
+      sess.i++; drawListen(); parts=buildParts(); k=0; setTimeout(step,350); return;
+    }
+    const p=parts[k++];
+    try{ window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(p.t); u.rate=META.slow?0.6:0.85; if(p.lang)u.lang=p.lang;
+      u.onend=()=>{ if(sess.playing) setTimeout(step,250); };
+      window.speechSynthesis.speak(u);
+    }catch(e){ sess.playing=false; updatePlayBtn(); }
+  };
+  step();
+}
+function imgIcon(){ return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`; }
+function ring(pct,centre){ const r=64,c=2*Math.PI*r,off=c*(1-pct/100);
+  const col=pct>=80?'var(--chloro)':pct>=50?'var(--b3)':'var(--amber)';
+  return `<svg class="ring" viewBox="0 0 150 150"><circle cx="75" cy="75" r="${r}" fill="none" stroke="var(--line-2)" stroke-width="11"/><circle cx="75" cy="75" r="${r}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}" transform="rotate(-90 75 75)"/><text x="75" y="79" text-anchor="middle" font-family="Inter" font-weight="700" font-size="30" fill="var(--ink)">${centre||pct+'%'}</text></svg>`; }
+function swipeBind(el,onLeft,onRight){ let x0=null;
+  el.addEventListener('touchstart',e=>{x0=e.touches[0].clientX},{passive:true});
+  el.addEventListener('touchend',e=>{ if(x0==null)return; const dx=e.changedTouches[0].clientX-x0; if(Math.abs(dx)>55){ dx<0?onLeft():onRight(); } x0=null; }); }
+
+/* =========================================================================
+   tabs + boot
+   ========================================================================= */
+function switchTab(name){
+  $$('.screen').forEach(s=>s.classList.toggle('active',s.id==='screen-'+name));
+  $$('nav.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===name));
+  if(name==='study') renderStudy();
+  if(name==='sync') renderSync();
+  if(name==='sets') renderSets();
+}
+$$('nav.tabbar button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+$('#new-set').onclick=()=>openEditor();
+$('#open-import').onclick=importSetsFile;
+$('#manage-toggle').onclick=toggleManage;
+
+async function loadAll(){
+  SETS=await DB.getAll('sets');
+  const prog=await DB.getAll('progress'); PROGRESS={}; prog.forEach(p=>PROGRESS[p.setId]=p);
+  META.syncCode=await DB.get('meta','syncCode');
+  META.dir=(await DB.get('meta','dir'))||'term';
+  META.lang=(await DB.get('meta','lang'))||null;
+  META.simpleOn=(await DB.get('meta','simpleOn'))||false;
+  META.partsOn=(await DB.get('meta','partsOn'))||false;
+  META.slow=(await DB.get('meta','slow'))||false;
+  META.goalPerDay=(await DB.get('meta','goalPerDay'))||DEFAULT_GOAL;
+  META.activeDays=(await DB.get('meta','activeDays'))||[];
+  META.dayProgress=(await DB.get('meta','dayProgress'))||null;
+  META.streakSeen=(await DB.get('meta','streakSeen'))||[];
+}
+
+/* ---- content that ships baked into the app (filled by the build step) ---- */
+function readSeed(){ try{ const el=document.getElementById('seed-data'); const d=JSON.parse(el.textContent); return (d&&Array.isArray(d.sets))?d:null; }catch(e){ return null; } }
+
+/* merge bundled content into the device. Keyed by stable ids so a re-publish
+   updates the wording of a card WITHOUT wiping the student's progress on it. */
+async function syncContent(seed){
+  if(!seed||!seed.sets.length) return false;
+  const stored = (await DB.get('meta','contentVersion'))||0;
+  const ver = seed.version||1;
+  if(ver<=stored) return false;                 // already have this version or newer
+  const existing={}; (await DB.getAll('sets')).forEach(s=>existing[s.id]=s);
+  for(const ss of seed.sets){
+    const set = existing[ss.sid] || {id:ss.sid,name:ss.name,cards:[],_managed:true};
+    set.name=ss.name; set._managed=true;
+    if(ss.chapter!=null) set.chapter=ss.chapter;
+    if(ss.order!=null) set.order=ss.order;
+    const prev={}; (set.cards||[]).forEach(c=>prev[c.id]=c);
+    const cards=[];
+    for(const sc of ss.cards){
+      const c = prev[sc.cid] || {id:sc.cid,starred:false,termImg:null,defImg:null};
+      c.term=sc.term; c.def=sc.def;
+      if('simple' in sc) c.simple=sc.simple;
+      if('tr' in sc) c.tr=sc.tr;
+      if('syll' in sc) c.syll=sc.syll;
+      if('parts' in sc) c.parts=sc.parts;
+      if('timg' in sc) c.termImg = sc.timg ? await materializeImg(sc.timg) : null;
+      if('dimg' in sc) c.defImg = sc.dimg ? await materializeImg(sc.dimg) : null;
+      cards.push(c);
+    }
+    set.cards=cards;
+    await DB.put('sets',set);
+  }
+  await DB.put('meta',ver,'contentVersion');
+  return true;
+}
+
+/* fallback demo — only used if NO content was baked in (e.g. opened as a bare file) */
+async function seedDemoIfEmpty(){
+  if((await DB.getAll('sets')).length) return;
+  const cellSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150"><ellipse cx="100" cy="75" rx="92" ry="62" fill="#e4f0ea" stroke="#1f6f54" stroke-width="2.5"/><circle cx="100" cy="75" r="26" fill="#cfe6da" stroke="#155a43" stroke-width="2.5"/><circle cx="100" cy="75" r="9" fill="#1f6f54"/><ellipse cx="55" cy="50" rx="16" ry="8" fill="#cf8233" opacity=".55"/><ellipse cx="145" cy="100" rx="16" ry="8" fill="#cf8233" opacity=".55"/></svg>`;
+  const key='img_'+uid(); await DB.put('images', new Blob([cellSVG],{type:'image/svg+xml'}), key);
+  await DB.put('sets',{ id:uid(), name:'Demo — delete me', cards:[
+    {id:uid(),term:'Identify this organelle',def:'Nucleus — controls cell activity and stores DNA',termImg:key,defImg:null,starred:false},
+    {id:uid(),term:'Ribosome',def:'Site of protein synthesis (translation of mRNA)',termImg:null,defImg:null,starred:false},
+  ]});
+}
+
+(async function boot(){
+  await DB.init();
+  SEED=readSeed();
+  await syncContent(SEED);            // load / update bundled content, keeping progress
+  await seedDemoIfEmpty();            // only fires if nothing was bundled
+  await loadAll();
+  if(SETS.length) current=SETS[0];
+  renderSets();
+  if(FIREBASE_CONFIG && META.syncCode){ await pullSync(); renderSets(); renderStudy(); }
+})();
+</script>
+<script>
+/* Register the service worker (enables offline + home-screen install).
+   Relative 'sw.js' resolves under the page's directory, so it works at
+   https://user.github.io/repo/ as well as at a domain root. */
+if('serviceWorker' in navigator){
+  addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){ /* offline / file:// — app still runs */ });
+  });
+}
+</script>
+</body>
+</html>
